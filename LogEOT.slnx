@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="LogEOT.Core/LogEOT.Core.csproj" Id="389c26c8-45b3-4944-8b3f-0656d0bd1490" />
+  <Project Path="LogEOT.Infrastructure/LogEOT.Infrastructure.csproj" Id="0f533665-70ee-4058-a3af-5aa26a776dd6" />
+  <Project Path="LogEOT.UI/LogEOT.UI.csproj" />
+</Solution>

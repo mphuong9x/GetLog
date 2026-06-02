@@ -1,0 +1,63 @@
+<UserControl x:Class="LogEOT.UI.Views.WelcomeView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             mc:Ignorable="d" 
+             d:DesignHeight="300" d:DesignWidth="600">
+    <Border Background="White"
+            BorderBrush="#E2E8F0"
+            BorderThickness="1"
+            Padding="20"
+            CornerRadius="8">
+        <Grid VerticalAlignment="Center">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" VerticalAlignment="Top">
+                <TextBlock Text="VN" FontSize="24" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                <TextBlock Text="Chào mừng đến với TESS-01!"
+                           FontSize="15" FontWeight="SemiBold" Foreground="#0F172A"
+                           TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,10"/>
+                <TextBlock TextWrapping="Wrap" FontSize="13" Foreground="#475569" LineHeight="22">
+                    <Run Text="•"/><Run Text=" Ấn nút "/><Run Text="&quot;Download Logs&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" để dùng chức năng tải file log."/>
+                    <LineBreak/>
+                    <Run Text="•"/><Run Text=" Ấn nút "/><Run Text="&quot;Analyze Logs&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" để dùng chức năng xử lý data."/>
+                </TextBlock>
+            </StackPanel>
+
+            <Border Grid.Column="1" Width="1" Background="#E2E8F0" Margin="15,0"/>
+
+            <StackPanel Grid.Column="2" VerticalAlignment="Top">
+                <TextBlock Text="CN" FontSize="24" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                <TextBlock Text="欢迎使用 TESS-01！"
+                           FontSize="15" FontWeight="SemiBold" Foreground="#0F172A"
+                           TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,10"/>
+                <TextBlock TextWrapping="Wrap" FontSize="13" Foreground="#475569" LineHeight="22">
+                    <Run Text="•"/><Run Text=" 点击 "/><Run Text="&quot;Download Logs&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" 按钮以下载日志文件。"/>
+                    <LineBreak/>
+                    <Run Text="•"/><Run Text=" 点击 "/><Run Text="&quot;Analyze Logs&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" 按钮以处理数据。"/>
+                </TextBlock>
+            </StackPanel>
+
+            <Border Grid.Column="3" Width="1" Background="#E2E8F0" Margin="15,0"/>
+
+            <StackPanel Grid.Column="4" VerticalAlignment="Top">
+                <TextBlock Text="ENG" FontSize="24" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                <TextBlock Text="Welcome to TESS-01!"
+                           FontSize="15" FontWeight="SemiBold" Foreground="#0F172A"
+                           TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,10"/>
+                <TextBlock TextWrapping="Wrap" FontSize="13" Foreground="#475569" LineHeight="22">
+                    <Run Text="•"/><Run Text=" Click the "/><Run Text="&quot;Download Logs&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" button to download log files."/>
+                    <LineBreak/>
+                    <Run Text="•"/><Run Text=" Click the "/><Run Text="&quot;Analyze Logs&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" button to process data."/>
+                </TextBlock>
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>
