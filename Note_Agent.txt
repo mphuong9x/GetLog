@@ -1,0 +1,15 @@
+MinIO
+
+cd C:\MinIO
+.\minio.exe server D:\minio-data --address ":9000" --console-address ":9001"
+
+$action = New-ScheduledTaskAction -Execute "C:\MinIO\minio.exe" -Argument "server D:\minio-data --address :9000 --console-address :9001" -WorkingDirectory "C:\MinIO"
+$trigger = New-ScheduledTaskTrigger -AtStartup
+$settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Seconds 0)
+$principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+Register-ScheduledTask -TaskName "MinIO" -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Force
+
+Start-ScheduledTask -TaskName "MinIO"
+
+Start-Sleep -Seconds 3
+Invoke-WebRequest -Uri "http://localhost:9000/minio/health/live" -UseBasicParsing -TimeoutSec 5
