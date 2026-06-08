@@ -10,6 +10,13 @@
 
 ## 0.1 Changelog
 
+- **2026-06-08 rev2** (senior review trước khi implement):
+  - `S1-04` → chỉnh scope: code hiện **đã có** `[EnableRateLimiting("auth")]` cho announce/enroll; việc cần làm là audit/tune policy, không phải thêm từ số 0.
+  - `S1-16` → thêm caveat nghiệp vụ: Git public repository hiện có anonymous read path; không được strict 401 blanket nếu vẫn muốn hỗ trợ public clone/pull.
+  - `S1-17` (mới): `GitAPIRepositoriesController` thiếu `[Authorize]`, riêng endpoint search user theo repo có nguy cơ leak user/email vì không check `CurrentUserId`/access.
+  - `S2-05` → chỉnh fix concurrency: không dựa vào read-only concurrency token của `SoftwareVersion`; phải lock/touch row hoặc dùng conditional update trong transaction.
+  - Làm rõ guardrail cho `S0-01`, `S1-02`, `S1-10`, `S1-13`, `S2-08`, `S2-09`, `S2-11` để tránh fix đúng kỹ thuật nhưng lệch nghiệp vụ vận hành.
+
 - **2026-06-07 rev1** (từ review feedback của owner):
   - `S0-02` (SystemUser Guid.Empty) → hạ severity **S0 → S1**, đổi ID thành `S1-15`. Lý do: chỉ là audit smell + theoretical risk, chưa chứng minh được auth bypass.
   - `S0-03` (GitBasicAuthFilter) → hạ severity **S0 → S1**, đổi ID thành `S1-16`. Lý do: controllers hiện tại đều check `CurrentUserId` → 401. Rủi ro là fail-open cho endpoint tương lai, không phải exploit hiện hữu.
@@ -62,6 +69,7 @@
   - Đổi `existing.RotatedAt = now` thành conditional UPDATE: `WHERE Id = @id AND RotatedAt IS NULL` (qua `ExecuteUpdateAsync` hoặc raw SQL).
   - Nếu rows-affected = 0 → throw `InvalidCredentialsException("Refresh token race detected")` + revoke family.
   - Hoặc thêm `[ConcurrencyCheck]` trên `RefreshToken.RotatedAt` (EF tự gắn vào WHERE).
+- **Lưu ý vận hành:** revoke cả token family là posture bảo mật tốt, nhưng sẽ logout user thật nếu frontend/API gateway gửi song song 2 refresh request. FE nên single-flight refresh + retry rõ ràng để tránh UX "tự logout" khi race hợp lệ.
 - **Test:** integration test với 2 task song song cùng gọi `RotateAsync(sameToken)` → chỉ 1 task trả token mới, task kia throw + family revoked.
 - **Effort:** S (1 ngày).
 - **PR:** `fix(auth): atomic refresh-token rotation [S0-01]`
@@ -84,7 +92,7 @@
 - **Vấn đề:** `CancelJobAsync` bypass `EnsureTransition`. Agent vừa download xong (10 phút) → `CompleteAsync(Completed)` → throw vì hiện status đã là `Cancelled`. Cũng race với `PinVersionAsync` đổi version đang Downloading (P0-04 cũ).
 - **Fix:**
   1. `EnsureTransition`: cho phép `Pending|Downloading|Installing → Cancelled`.
-  2. `CompleteAsync`: idempotent — nếu job đã terminal (`Completed|Failed|Cancelled`), log info + return success. Đừng throw.
+  2. `CompleteAsync`: idempotent — nếu job đã terminal (`Completed|Failed|Cancelled`), log info + return success, **không đổi status, không gọi `MarkInstalledAsync`, không flip `Computer.OperationalStatus`**. Nếu payload terminal mới khác status hiện tại, log warning/audit để trace stale agent callback.
   3. Server-side push "your job was cancelled" qua `AgentHeartbeatResponse.Commands` (mới — xem F-03).
 - **Test:** unit test cho mọi transition; integration test cancel-during-download.
 - **Effort:** M.
@@ -96,16 +104,17 @@
 - **Test:** integration test "pin v1 → start download → pin v2 → agent must end up with v2 only".
 - **Effort:** S.
 
-#### `S1-04` Rate-limit `/agent/v1/announce` — defense in depth cho installer-token
+#### `S1-04` Tune rate-limit `/agent/v1/announce` — defense in depth cho installer-token
 - **File:** [MProjectBackend/MProject.Application/Services/Assets/AgentService.cs:86-198](MProjectBackend/MProject.Application/Services/Assets/AgentService.cs:86)
-- **Vấn đề:** Installer-token là single shared secret distributed với installer image — risk leak cao. Hiện endpoint không có rate-limit → ai có token (hoặc brute-force token) đều spam announce vô hạn.
+- **Vấn đề:** Installer-token là single shared secret distributed với installer image — risk leak cao. Code hiện đã có `[EnableRateLimiting("auth")]` ở [AgentController.cs:37](MProjectBackend/MProject.Api/Controllers/Assets/AgentController.cs:37) và policy `auth` 5 req/phút ở [Program.cs:130-136](MProjectBackend/MProject.Api/Program.cs:130). Tuy nhiên policy này đang dùng chung announce/enroll và cần audit partition key; nếu không partition per-IP/per-token đúng, spam/leak token vẫn khó kiểm soát, còn batch enroll hợp lệ có thể bị throttle sai.
 - **Lưu ý revision:** Threat "hijack qua MAC reuse sau soft-delete" mình nêu ban đầu **không tồn tại** — DB index `HasIndex(x => x.MacAddress).IsUnique()` ở [DBContext.cs:144](MProjectBackend/MProject.Infrastructure/DBContext.cs:144) là global, chặn mọi re-insert. Phần xử lý UX khi DB chặn được tách ra task riêng [`S2-19`](#42-short-term-features) (Phase 3).
 - **Fix:**
-  - Rate-limit `/agent/v1/announce` qua middleware (vd ASP.NET RateLimiter, fixed window 5 req/giờ/IP — production có thể dùng Redis token bucket khi có A-01).
+  - Review policy hiện tại, tách policy cho `/announce` và `/enroll` nếu cần; partition theo IP + installer/enrollment token hash. Production có thể chuyển sang Redis token bucket khi có A-01.
+  - Định nghĩa ngưỡng vận hành rõ: announce có thể thấp hơn enroll; enroll phải tính tới batch rollout nhiều PC cùng NAT.
   - Audit log mỗi announce thành công (`Computer.AnnouncedAt`, `CreatedBy = SystemUser`).
   - Alert admin (qua outbox khi có A-03) khi có announce bất thường (vd > 3/giờ).
 - **Effort:** S.
-- **PR:** `feat(agent): rate-limit announce endpoint [S1-04]`
+- **PR:** `fix(agent): tune announce rate-limit policy [S1-04]`
 
 #### `S1-05` `ProcessSupervisor.HandleDeadOnRecoveryAsync` mặc định `HostShuttingDown` → không restart sau reboot
 - **File:** [MProjectAgent/Services/ProcessSupervisor.cs:118-140](MProjectAgent/Services/ProcessSupervisor.cs:118), [ShouldRestart:249-250](MProjectAgent/Services/ProcessSupervisor.cs:249)
@@ -154,6 +163,7 @@
 - **File:** [MProjectBackend/MProject.Application/Services/Identity/AuthService.cs:201-216](MProjectBackend/MProject.Application/Services/Identity/AuthService.cs:201)
 - **Vấn đề:** `/me` trả `permissions = rolePerms + aclAllowPerms`. Không trừ ACL Deny → UI hiển thị menu nhưng click 403.
 - **Fix (preferred):** `/me` chỉ trả **role-based coarse permissions** (không có effect-level). Mọi check thực vẫn đi qua `IPermissionService`. UI chỉ dùng `/me` cho navigation hint, render fail-soft.
+- **Lưu ý frontend contract:** FE hiện dùng `me.permissions` cho navigation/route guard. Nếu đổi sang role-only coarse permissions, phải cập nhật access-control/frontend wording hoặc thêm field riêng kiểu `navigationPermissions`; không được để UI hiểu nhầm đây là authorization truth.
 - **Fix (alternative):** tính chính xác giống `PermissionEvaluator` (deny override allow per-resource). Phức tạp & ít người dùng tận dụng.
 - **[NEED INPUT]:** chọn approach nào? Mặc định khuyến nghị (preferred) — đơn giản, đúng nhất.
 - **Effort:** M.
@@ -182,6 +192,7 @@
 #### `S1-13` Approval policy bypass khi admin tắt `IsActive` → target kẹt `Draft` vĩnh viễn
 - **File:** [MProjectBackend/MProject.Application/Services/Approvals/ApprovalService.cs:57-66](MProjectBackend/MProject.Application/Services/Approvals/ApprovalService.cs:57)
 - **[NEED INPUT]:** muốn fallback "auto-approve with audit warning" hay "block & alert admin"?
+- **Khuyến nghị:** mặc định **block & alert admin**. Auto-approve là compliance-risk, chỉ nên bật bằng config rõ ràng trong môi trường không yêu cầu GMP/IATF/FDA hoặc flow nội bộ đã chấp nhận rủi ro.
 - **Fix (auto-approve path):** thêm `ApprovalSettings.AutoApproveWhenNoActivePolicy` (default false). True → tạo `ApprovalRequest.Status = AutoApproved` + ghi audit `ApprovalAction.Auto`.
 - **Fix (block path):** giữ throw, nhưng thêm health-check endpoint `/admin/approvals/policy-coverage` báo target nào không có policy active.
 - **Effort:** M.
@@ -203,11 +214,23 @@
 - **File:** [MProjectBackend/MProject.Api/Filters/GitBasicAuthFilter.cs:21-52](MProjectBackend/MProject.Api/Filters/GitBasicAuthFilter.cs:21)
 - **Vấn đề (đã hạ severity rev1):** Filter catch-all + không trả 401, chỉ skip set `CurrentUserId`. Controllers Git hiện tại đều check `CurrentUserId` và trả 401 → **không có exploit hiện hữu**. Rủi ro là fail-open trap: bất kỳ endpoint Git mới nào quên check sẽ không-auth-by-default.
 - **Fix:**
-  - Filter strict: auth fail → return `UnauthorizedResult()` ngay (không phụ thuộc controller).
+  - Không strict 401 blanket cho mọi request nếu vẫn giữ tính năng clone/pull public repository. `GitRepositoryService.HasAccessAsync(..., requireWrite: false)` hiện cho phép `RepoVisibility.Public` anonymous read ở [GitRepositoryService.cs:330](MProjectBackend/MProject.Application/Services/GitRepositoryService.cs:330) và [GitRepositoryService.cs:475](MProjectBackend/MProject.Application/Services/GitRepositoryService.cs:475).
+  - Tách rõ contract: endpoint Git read public được phép anonymous; Git write/private read bắt buộc Basic Auth hợp lệ và trả 401 ngay khi auth fail.
   - Lý tưởng: chuyển sang `AuthenticationHandler` đầy đủ + `[Authorize]` standard, đồng nhất với `AgentAuthenticationHandler`.
   - Audit endpoint Git hiện có (chạy grep tìm tất cả `[GitBasicAuth]`) để xác nhận không có endpoint cố ý fail-open.
 - **Effort:** M (2 ngày, có audit endpoints).
-- **PR:** `fix(auth): enforce 401 on git basic-auth failure [S1-16]`
+- **PR:** `fix(auth): harden git basic-auth without breaking public read [S1-16]`
+
+#### `S1-17` `GitAPIRepositoriesController` thiếu `[Authorize]` + search user không check access
+- **File:** [MProjectBackend/MProject.Api/Controllers/GitAPIRepositoriesController.cs:7](MProjectBackend/MProject.Api/Controllers/GitAPIRepositoriesController.cs:7), [GitAPIRepositoriesController.cs:56-58](MProjectBackend/MProject.Api/Controllers/GitAPIRepositoriesController.cs:56), [GitRepositoryService.cs:153-174](MProjectBackend/MProject.Application/Services/GitRepositoryService.cs:153)
+- **Vấn đề:** Controller route `/api/repository` không có `[Authorize]`. Nhiều action gọi `CurrentUserId`; request anonymous sẽ throw `UnauthorizedAccessException`, bị `GlobalExceptionHandler` map thành 403 ở [GlobalExceptionHandler.cs:102](MProjectBackend/MProject.Api/Middleware/GlobalExceptionHandler.cs:102) thay vì 401 chuẩn. Riêng `GetUsersForRepo(Guid id, query)` gọi service bằng `repoId + query` mà không truyền `CurrentUserId` và không check `HasAccessAsync`, có nguy cơ leak danh sách user/email cho anonymous hoặc user không có quyền repo.
+- **Fix:**
+  - Thêm `[Authorize]` ở controller hoặc action-level cho toàn bộ `/api/repository` admin/API surface.
+  - `GetUsersForRepo` phải đọc `CurrentUserId`, check `HasAccessAsync(id, CurrentUserId, requireWrite: true)` hoặc permission repo-member-manage trước khi trả user suggestions.
+  - Service `GetUsersForRepoAsync` nên nhận `currentUserId`/authorization context, không expose query helper bỏ qua auth ở layer controller.
+- **Test:** integration test anonymous gọi `/api/repository` → 401; user không có quyền gọi search member → 403; owner/admin repo gọi search → 200 và không trả owner/member đã có.
+- **Effort:** S.
+- **PR:** `fix(auth): require authorization on repository admin API [S1-17]`
 
 ---
 
@@ -253,7 +276,10 @@
 
 #### `S2-05` `RegisterUploadedFileAsync` không lock version status trong transaction
 - **File:** [SoftwareFileService.cs:47-89](MProjectBackend/MProject.Application/Services/Software/SoftwareFileService.cs:47)
-- **Fix:** bọc trong `ExecuteInTransactionAsync`. Reload version với `AsTracking()` + check `version.Version` (đã có `IVersionedEntity` concurrency token).
+- **Fix:** bọc trong `ExecuteInTransactionAsync`, nhưng **không dựa vào việc read `SoftwareVersion.Version` đơn thuần** vì nếu không update/touch row thì concurrency token không tham gia bảo vệ. Chọn một trong các hướng:
+  - Postgres row lock (`SELECT ... FOR UPDATE`) trên `SoftwareVersion` trước khi check status rồi insert file.
+  - Conditional update/touch trong transaction (`WHERE Id = @id AND Status = Draft AND Version = @version`) để bump concurrency token trước khi insert.
+  - Hoặc chuyển invariant sang DB constraint/trigger nếu muốn chặn file attach sau release ở tầng dữ liệu.
 - **Effort:** S.
 
 #### `S2-06` `AnnounceAsync` cho admin pre-register dùng InMemory provider không có transaction
@@ -267,10 +293,11 @@
 
 #### `S2-08` `ExecuteUpdateAsync` bypass change tracker → entity stale
 - **File:** nhiều chỗ trong `InstallationJobService`, `ComputerLivenessWatchdogService`, `AgentService`.
-- **Action:** mỗi block `ExecuteUpdateAsync` xong, nếu service đó còn đọc cùng entity → gọi `_context.ChangeTracker.Clear()`. Audit & document quy ước.
+- **Action:** mỗi block `ExecuteUpdateAsync` xong, nếu service đó còn đọc cùng entity → reload entity hoặc gọi `_context.ChangeTracker.Clear()` có chủ đích. Không blanket clear trong transaction khi context đang có pending tracked changes, vì có thể drop/sai lệch thay đổi chưa lưu. Audit & document quy ước.
 
-#### `S2-09` Heartbeat DTO mismatch — Hostname/LastError dead-code ở server
+#### `S2-09` Agent heartbeat DTO thiếu Hostname/LastError so với backend contract
 - **File:** Agent [AgentApiModels.cs:39-44](MProjectAgent/Models/AgentApiModels.cs:39), Backend [AgentModels.cs:59-66](MProjectBackend/MProject.Application/Models/AgentModels.cs:59)
+- **Vấn đề:** Backend DTO đã có `Hostname` và `LastError`; mismatch nằm ở agent DTO/worker chưa gửi 2 field này, làm backend fields thành gần như dead-code.
 - **Fix:** agent gửi `Hostname` và `LastError` (lấy từ `Environment.MachineName` + `_supervisor.GetLastError()`).
 - **Effort:** S.
 
@@ -331,6 +358,8 @@
 | `S2-17` | `ResolveManifestAsync` không throw `KeyNotFoundException` cho job đã terminal — trả `missing[]` | [InstallationJobService.cs:205-206](MProjectBackend/MProject.Application/Services/Software/InstallationJobService.cs:205) | S |
 | `S2-18` | `GetMeAsync` cache 30-60s per `(userId, userVersion)` | [AuthService.cs:166-229](MProjectBackend/MProject.Application/Services/Identity/AuthService.cs:166) | S |
 | `S2-19` | `AnnounceAsync` xử lý clear error khi DB unique-index chặn MAC + document reuse policy | [AgentService.cs:139-167](MProjectBackend/MProject.Application/Services/Assets/AgentService.cs:139), [DBContext.cs:144](MProjectBackend/MProject.Infrastructure/DBContext.cs:144) | S, **[NEED INPUT]** |
+
+> **Lưu ý `S2-11`:** constraint hiện tại có ý nghĩa nghiệp vụ "một package chỉ được assign một nơi" và service cũng enforce global assignment. Relax thành `(Station, Package)` sẽ cho cùng package đi nhiều station; vẫn cần quyết định riêng có giữ rule "mỗi station chỉ một active package" hay cho multi-package active trên cùng station. Không implement migration trước khi chốt rule này.
 
 ### 4.2 Short-term features
 
@@ -475,22 +504,23 @@
 
 ### Phase 1 — Critical & Auth/Supervisor
 
-- [ ] `S0-01` Atomic refresh-token rotation
-- [ ] `S1-01` Heartbeat upsert transaction
-- [ ] `S1-02` EnsureTransition allow Cancelled + CompleteAsync idempotent
-- [ ] `S1-03` PinVersionAsync cancel Downloading/Installing
-- [ ] `S1-04` Rate-limit `/agent/v1/announce` (rev1: narrowed scope)
-- [ ] `S1-05` ProcessSupervisor recovery default = relaunch
-- [ ] `S1-06` ExitClassifier per-mode
-- [ ] `S1-07` RuntimeStateStore backup + logging
-- [ ] `S1-08` BlobCache eviction conditional DELETE
+- [x] `S0-01` Atomic refresh-token rotation
+- [x] `S1-01` Heartbeat upsert transaction
+- [x] `S1-02` EnsureTransition allow Cancelled + CompleteAsync idempotent
+- [x] `S1-03` PinVersionAsync cancel Downloading/Installing
+- [x] `S1-04` Tune `/agent/v1/announce` rate-limit policy (rev2: existing limiter audit)
+- [x] `S1-05` ProcessSupervisor recovery default = relaunch
+- [x] `S1-06` ExitClassifier per-mode
+- [x] `S1-07` RuntimeStateStore backup + logging
+- [x] `S1-08` BlobCache eviction conditional DELETE
 - [ ] `S1-09` BuildManifestJobsAsync batch presign
 - [ ] `S1-10` GetMeAsync coarse permissions
 - [ ] `S1-11` Cache version GUID + decision invalidation (rev1: wording clarified)
 - [ ] `S1-12` ResourceLookupService invalidate
 - [ ] `S1-13` Approval policy fallback
 - [ ] `S1-15` SystemUser cho self-announce (rev1: was `S0-02`)
-- [ ] `S1-16` GitBasicAuthFilter strict 401 (rev1: was `S0-03`)
+- [ ] `S1-16` GitBasicAuthFilter harden without breaking public read (rev1: was `S0-03`)
+- [ ] `S1-17` Git repository API authorization
 
 ### Phase 2 — High/Medium + Foundations
 
@@ -499,10 +529,10 @@
 - [ ] `S2-02` Split `software.manage` permission
 - [ ] `S2-03` Pending user not assigned Viewer
 - [ ] `S2-04` Email/reset password decision + endpoint
-- [ ] `S2-05` RegisterUploadedFileAsync transaction
+- [ ] `S2-05` RegisterUploadedFileAsync transaction + version lock/touch
 - [ ] `S2-06` AnnounceAsync transaction unified
 - [ ] `S2-07` Tus rollback semantics doc
-- [ ] `S2-08` ExecuteUpdateAsync ChangeTracker clear audit
+- [ ] `S2-08` ExecuteUpdateAsync reload/ChangeTracker clear audit
 - [ ] `S2-09` Heartbeat DTO contract align
 - [ ] `A-01` Distributed cache bus (Redis)
 - [ ] `A-02` WITH RECURSIVE hierarchy query
@@ -514,7 +544,7 @@
 ### Phase 3 — S2 cleanup + Short-term features + S3
 
 - [ ] `S2-10` Production guard minio default
-- [ ] `S2-11` Station-package unique relax
+- [ ] `S2-11` Station-package unique relax + active-package rule decision
 - [ ] `S2-12` PollAsync catch narrow
 - [ ] `S2-13` Agent token lifetime
 - [ ] `S2-14` CacheIndex GetExistingHashesAsync
@@ -561,35 +591,36 @@
 2. **[S2-19]** *(was S1-04)* Có cho phép re-use MAC sau khi admin "purge" (entity mới `ComputerPurge`), hay cấm vĩnh viễn (bắt admin đổi MAC card cũ trước khi tái sử dụng PC)?
 3. **[S1-10]** `/me` chỉ trả coarse role-based permissions (preferred) hay tính full ACL Deny logic?
 4. **[S1-13]** Approval policy không-active → "auto-approve with audit warning" hay "block & alert admin"?
-5. **[S2-01]** ACL Deny global priority cao có thắng ACL Allow scope priority thấp không? Document chính thức.
-6. **[S2-03]** User `Pending` register: (a) không assign role, đợi admin approve mới gán; (b) tạo RoleAssignment với `StartTime = null`?
-7. **[S2-04]** Cần email + reset-password flow không? Hay admin reset manual qua endpoint mới?
-8. **[F-07]** Compliance level cần đạt: GMP/IATF/FDA 21 CFR Part 11? Ảnh hưởng tới signature scope.
+5. **[S1-16]** Git public repository có cần hỗ trợ anonymous clone/pull không? Nếu có, S1-16 phải harden theo route/operation, không strict 401 blanket.
+6. **[S2-01]** ACL Deny global priority cao có thắng ACL Allow scope priority thấp không? Document chính thức.
+7. **[S2-03]** User `Pending` register: (a) không assign role, đợi admin approve mới gán; (b) tạo RoleAssignment với `StartTime = null`?
+8. **[S2-04]** Cần email + reset-password flow không? Hay admin reset manual qua endpoint mới?
+9. **[F-07]** Compliance level cần đạt: GMP/IATF/FDA 21 CFR Part 11? Ảnh hưởng tới signature scope.
 
 ### 7.2 Scaling & Infrastructure
 
-9. **[A-01]** Đã có Redis trong infra chưa? Ưu tiên Phase 2 hay Phase 3?
-10. **[A-03]** Outbox dispatcher dùng poll-loop in-proc đơn giản, hay tích hợp message broker (RabbitMQ/Kafka)?
-11. **[F-15]** Multi-tenant: roadmap năm nào? Ảnh hưởng tới việc thiết kế lại `Resource` hierarchy có cần `Tenant` ở root.
-12. **[F-17]** Agent self-update có ưu tiên không? Hiện tại có cơ chế triển khai agent qua MSI/GPO sẵn không?
+10. **[A-01]** Đã có Redis trong infra chưa? Ưu tiên Phase 2 hay Phase 3?
+11. **[A-03]** Outbox dispatcher dùng poll-loop in-proc đơn giản, hay tích hợp message broker (RabbitMQ/Kafka)?
+12. **[F-15]** Multi-tenant: roadmap năm nào? Ảnh hưởng tới việc thiết kế lại `Resource` hierarchy có cần `Tenant` ở root.
+13. **[F-17]** Agent self-update có ưu tiên không? Hiện tại có cơ chế triển khai agent qua MSI/GPO sẵn không?
 
 ### 7.3 Product/Operations
 
-13. **[S2-02]** Tách `software.manage` thành 4 permission: có team nào hiện đang dùng role gắn `software.manage` mà chỉ cần 1 phần? *(cần migration mapping)*
-14. **[S2-11]** Station-package unique constraint: hiện có line nào cần share package qua nhiều station không? Nếu có, relax thành `(Station, Package)`.
-15. **[S2-13]** Agent token lifetime 30/60/90 ngày? Có chấp nhận admin phải re-enroll PC định kỳ không?
-16. **[F-01]** "Wait-for-idle" có cần flag `HotfixOverride` cho admin force-install giữa lúc test đang chạy không?
-17. **[F-02]** Maintenance window per Station: timezone — UTC hay local time của factory? Daylight saving?
-18. **[F-05]** Auto-rollback threshold: bao nhiêu PC crash-loop thì rollback toàn bộ station? (5%? 10%?)
-19. **[F-06]** Test app health probe: bắt buộc cho mọi LongRunning app hay opt-in qua `SoftwareVersion.HealthCheckUrl`?
-20. **[F-18]** Test result aggregation: format report do test app team định nghĩa (CSV/JUnit), hay schema chuẩn server-defined? MES integration urgency?
+14. **[S2-02]** Tách `software.manage` thành 4 permission: có team nào hiện đang dùng role gắn `software.manage` mà chỉ cần 1 phần? *(cần migration mapping)*
+15. **[S2-11]** Station-package unique constraint: hiện có line nào cần share package qua nhiều station không? Nếu có, relax thành `(Station, Package)`. Có giữ rule "mỗi station chỉ một active package" không?
+16. **[S2-13]** Agent token lifetime 30/60/90 ngày? Có chấp nhận admin phải re-enroll PC định kỳ không?
+17. **[F-01]** "Wait-for-idle" có cần flag `HotfixOverride` cho admin force-install giữa lúc test đang chạy không?
+18. **[F-02]** Maintenance window per Station: timezone — UTC hay local time của factory? Daylight saving?
+19. **[F-05]** Auto-rollback threshold: bao nhiêu PC crash-loop thì rollback toàn bộ station? (5%? 10%?)
+20. **[F-06]** Test app health probe: bắt buộc cho mọi LongRunning app hay opt-in qua `SoftwareVersion.HealthCheckUrl`?
+21. **[F-18]** Test result aggregation: format report do test app team định nghĩa (CSV/JUnit), hay schema chuẩn server-defined? MES integration urgency?
 
 ### 7.4 Quy trình thực thi
 
-21. **PR size:** prefer 1 task = 1 PR hay gom S3 thành 1 PR cleanup duy nhất? *(đang đề xuất gom S3, tách S0/S1)*
-22. **Test gate:** có yêu cầu integration test pass trong CI cho mọi PR S0/S1 không?
-23. **Migration apply timing:** PR merge auto apply migration trên staging, hay manual apply có window?
-24. **Branch strategy:** một `refactor/phase-1` branch dài lâu, hay từng task 1 branch ngắn `fix/s0-01-...`?
+22. **PR size:** prefer 1 task = 1 PR hay gom S3 thành 1 PR cleanup duy nhất? *(đang đề xuất gom S3, tách S0/S1)*
+23. **Test gate:** có yêu cầu integration test pass trong CI cho mọi PR S0/S1 không?
+24. **Migration apply timing:** PR merge auto apply migration trên staging, hay manual apply có window?
+25. **Branch strategy:** một `refactor/phase-1` branch dài lâu, hay từng task 1 branch ngắn `fix/s0-01-...`?
 
 ---
 
