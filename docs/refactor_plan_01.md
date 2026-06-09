@@ -267,8 +267,8 @@
 
 #### `S2-04` `RegisterAsync` không yêu cầu email — không có reset password
 - **File:** [AuthService.cs:60](MProjectBackend/MProject.Application/Services/Identity/AuthService.cs:60)
-- **[NEED INPUT]:** factory env có muốn reset password qua email không? Hay admin reset manual?
-- **Action:** document và thêm endpoint `/auth/admin/reset-password/{userId}` nếu chọn manual.
+- **Decision:** không thêm email reset/self-service trong scope hiện tại. Factory dùng reset password manual bởi admin.
+- **Implementation:** giữ public `RegisterAsync` không yêu cầu email; admin có thể reset qua `PUT /api/users/{id}/password` và cập nhật email qua user profile endpoint.
 
 ---
 
@@ -289,7 +289,7 @@
 
 #### `S2-07` `TusUploadHandler.OnFileCompleteAsync` ghi rõ semantics rollback
 - **File:** [MProjectBackend/MProject.Api/Infrastructure/TusUploadHandler.cs:198-238](MProjectBackend/MProject.Api/Infrastructure/TusUploadHandler.cs:198)
-- **Action:** comment chính thức "best-effort rollback; BlobGc cleanup orphan trong grace period" + đo tỉ lệ orphan qua metric.
+- **Implementation:** comment chính thức "best-effort rollback; BlobGc cleanup orphan trong grace period" + metrics `mproject_tus_blob_rollback_attempts` / `mproject_tus_blob_rollback_orphans` để theo dõi orphan rate.
 
 #### `S2-08` `ExecuteUpdateAsync` bypass change tracker → entity stale
 - **File:** nhiều chỗ trong `InstallationJobService`, `ComputerLivenessWatchdogService`, `AgentService`.
@@ -513,32 +513,32 @@
 - [x] `S1-06` ExitClassifier per-mode
 - [x] `S1-07` RuntimeStateStore backup + logging
 - [x] `S1-08` BlobCache eviction conditional DELETE
-- [ ] `S1-09` BuildManifestJobsAsync batch presign
-- [ ] `S1-10` GetMeAsync coarse permissions
-- [ ] `S1-11` Cache version GUID + decision invalidation (rev1: wording clarified)
-- [ ] `S1-12` ResourceLookupService invalidate
-- [ ] `S1-13` Approval policy fallback
-- [ ] `S1-15` SystemUser cho self-announce (rev1: was `S0-02`)
-- [ ] `S1-16` GitBasicAuthFilter harden without breaking public read (rev1: was `S0-03`)
-- [ ] `S1-17` Git repository API authorization
+- [x] `S1-09` BuildManifestJobsAsync batch presign
+- [x] `S1-10` GetMeAsync coarse permissions
+- [x] `S1-11` Cache version GUID + decision invalidation (rev1: wording clarified)
+- [x] `S1-12` ResourceLookupService invalidate
+- [x] `S1-13` Approval policy fallback
+- [x] `S1-15` SystemUser cho self-announce (rev1: was `S0-02`)
+- [x] `S1-16` GitBasicAuthFilter harden without breaking public read (rev1: was `S0-03`)
+- [x] `S1-17` Git repository API authorization
 
 ### Phase 2 — High/Medium + Foundations
 
-- [ ] `S1-14` EnsureRolePermissionsGrantableAsync bulk query
+- [x] `S1-14` EnsureRolePermissionsGrantableAsync bulk query
 - [ ] `S2-01` Document authz semantics + matrix tests
 - [ ] `S2-02` Split `software.manage` permission
-- [ ] `S2-03` Pending user not assigned Viewer
-- [ ] `S2-04` Email/reset password decision + endpoint
-- [ ] `S2-05` RegisterUploadedFileAsync transaction + version lock/touch
-- [ ] `S2-06` AnnounceAsync transaction unified
-- [ ] `S2-07` Tus rollback semantics doc
-- [ ] `S2-08` ExecuteUpdateAsync reload/ChangeTracker clear audit
-- [ ] `S2-09` Heartbeat DTO contract align
+- [x] `S2-03` Pending user not assigned Viewer
+- [x] `S2-04` Email/reset password decision + endpoint
+- [x] `S2-05` RegisterUploadedFileAsync transaction + version lock/touch
+- [x] `S2-06` AnnounceAsync transaction unified
+- [x] `S2-07` Tus rollback semantics doc
+- [x] `S2-08` ExecuteUpdateAsync reload/ChangeTracker clear audit
+- [x] `S2-09` Heartbeat DTO contract align
 - [ ] `A-01` Distributed cache bus (Redis)
 - [ ] `A-02` WITH RECURSIVE hierarchy query
 - [ ] `A-03` Domain Events Outbox
 - [ ] `A-04` API versioning
-- [ ] `A-05` BlobGc advisory lock
+- [x] `A-05` BlobGc advisory lock
 - [ ] `A-06` Seeder version tracking
 
 ### Phase 3 — S2 cleanup + Short-term features + S3
@@ -594,7 +594,7 @@
 5. **[S1-16]** Git public repository có cần hỗ trợ anonymous clone/pull không? Nếu có, S1-16 phải harden theo route/operation, không strict 401 blanket.
 6. **[S2-01]** ACL Deny global priority cao có thắng ACL Allow scope priority thấp không? Document chính thức.
 7. **[S2-03]** User `Pending` register: (a) không assign role, đợi admin approve mới gán; (b) tạo RoleAssignment với `StartTime = null`?
-8. **[S2-04]** Cần email + reset-password flow không? Hay admin reset manual qua endpoint mới?
+8. **[S2-04]** Resolved: dùng admin reset manual qua `PUT /api/users/{id}/password`; chưa thêm email reset/self-service.
 9. **[F-07]** Compliance level cần đạt: GMP/IATF/FDA 21 CFR Part 11? Ảnh hưởng tới signature scope.
 
 ### 7.2 Scaling & Infrastructure
