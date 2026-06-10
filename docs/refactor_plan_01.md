@@ -351,7 +351,7 @@
 | `S2-10` | `appsettings.json` minioadmin default + production guard | [appsettings.json:16-17](MProjectBackend/MProject.Api/appsettings.json:16) | S |
 | `S2-11` | Station-package unique constraint relax `(Station, Package)` | [DBContext.cs:283-291](MProjectBackend/MProject.Infrastructure/DBContext.cs:283), [StationSoftwareAssignmentService.cs:48-51](MProjectBackend/MProject.Application/Services/Software/StationSoftwareAssignmentService.cs:48) | M, **[NEED INPUT]** |
 | `S2-12` | `PollAsync` catch hẹp `PostgresException 23505` | [InstallationJobService.cs:167-173](MProjectBackend/MProject.Application/Services/Software/InstallationJobService.cs:167) | S |
-| `S2-13` | Agent token lifetime + admin audit (`Agent.TokenIssuedAt`) | [Agent.cs](MProjectBackend/MProject.Domain/Entities/Assets/Agent.cs), [AgentService.cs](MProjectBackend/MProject.Application/Services/Assets/AgentService.cs) | M, **[NEED INPUT]** |
+| `S2-13` | Agent token lifetime + admin audit (`Agent.TokenIssuedAt`) | [Agent.cs](MProjectBackend/MProject.Domain/Entities/Assets/Agent.cs), [AgentService.cs](MProjectBackend/MProject.Application/Services/Assets/AgentService.cs) | S — Resolved 2026-06-10 |
 | `S2-14` | Agent `CacheIndex.GetExistingHashesAsync(IN ...)` thay `GetAllHashesAsync` | [CacheIndex.cs:93-104](MProjectAgent/Storage/CacheIndex.cs:93) | S |
 | `S2-15` | `CancelJobAsync` không lật `OperationalStatus` đè Maintenance/Running | [InstallationJobService.cs:420-434](MProjectBackend/MProject.Application/Services/Software/InstallationJobService.cs:420) | S |
 | `S2-16` | `AnnounceAsync` error message kèm hint enrollment-token | [AgentService.cs:124-137](MProjectBackend/MProject.Application/Services/Assets/AgentService.cs:124) | S |
@@ -359,7 +359,15 @@
 | `S2-18` | `GetMeAsync` cache 30-60s per `(userId, userVersion)` | [AuthService.cs:166-229](MProjectBackend/MProject.Application/Services/Identity/AuthService.cs:166) | S |
 | `S2-19` | `AnnounceAsync` xử lý clear error khi DB unique-index chặn MAC + document reuse policy | [AgentService.cs:139-167](MProjectBackend/MProject.Application/Services/Assets/AgentService.cs:139), [DBContext.cs:144](MProjectBackend/MProject.Infrastructure/DBContext.cs:144) | S, **[NEED INPUT]** |
 
-> **Lưu ý `S2-11`:** constraint hiện tại có ý nghĩa nghiệp vụ "một package chỉ được assign một nơi" và service cũng enforce global assignment. Relax thành `(Station, Package)` sẽ cho cùng package đi nhiều station; vẫn cần quyết định riêng có giữ rule "mỗi station chỉ một active package" hay cho multi-package active trên cùng station. Không implement migration trước khi chốt rule này.
+> **`F-01` Resolved (2026-06-10):** `InstallationJobService.PollAsync` ([InstallationJobService.cs:79-198](MProjectBackend/MProject.Application/Services/Software/InstallationJobService.cs:79)) thêm `CanEnqueueNewJobsAsync` — nếu `ComputerRuntimeStatus.IsTestAppRunning = true` thì **không tạo job Pending mới** cho version đó (job active sẵn có vẫn được trả về bình thường). Quyết định: **chưa thêm `HotfixOverride`** (theo nguyên tắc giữ scope nhỏ ở §0 mục 3) — sẽ bổ sung ở PR riêng nếu vận hành thực tế cần force-install giữa lúc test đang chạy. Test mới: `Poll_SkipsNewJobEnqueue_WhenTestAppIsRunning`.
+
+> **`F-02` Resolved (2026-06-10):** Thêm `Station.UpdateWindow` (jsonb, nullable, value object `StationUpdateWindow { DailyStartUtc, DailyEndUtc, DaysOfWeek }` — migration `AddStationUpdateWindow`). Giờ lưu **UTC**; `null` = không giới hạn (mặc định, giữ hành vi cũ). `PollAsync` dùng chung `CanEnqueueNewJobsAsync` để filter: ngoài window → không tạo job Pending mới (job active sẵn có vẫn tiếp tục). `UpdateStationRequest`/`StationDto` thêm field `UpdateWindow` để admin set qua `PUT /api/v{version}/stations/{id}`. Test mới: `Poll_SkipsNewJobEnqueue_OutsideStationUpdateWindow`, `Poll_CreatesJob_InsideStationUpdateWindow`. **Follow-up:** FE chưa có UI để admin set `UpdateWindow` per station (chỉ có backend endpoint) — cần task riêng.
+
+> **`S2-11` Resolved (2026-06-10):** relax unique constraint thành `(StationResourceId, SoftwarePackageId)` filter `!IsDeleted` (migration `RelaxStationPackageUniqueConstraint`, index `IX_StationSoftwareAssignments_Station_Package`) — 1 package được phép gán cho nhiều station. Giữ nguyên rule "mỗi station chỉ 1 active package tại 1 thời điểm" (`IX_StationSoftwareAssignments_StationResource_Active` không đổi). `AssignAsync` đổi check trùng từ "package đã gán ở đâu đó chưa" → "package đã gán cho STATION NÀY chưa". Lý do chọn relax: đồng bộ pattern với `ComputerSoftwareAssignment` (unique theo `(scope, package)`, không global) trong [utility_files_plan.md](utility_files_plan.md). FE (`DeployPackageModal.tsx`) hiện vẫn block "unassign trước khi deploy nơi khác" theo rule cũ — cần fix riêng để dùng được capability mới (xem trao đổi trong session).
+
+> **`S2-19` Resolved (2026-06-10):** `AnnounceAsync` ([AgentService.cs:158-185](MProjectBackend/MProject.Application/Services/Assets/AgentService.cs:158)) nay query `IgnoreQueryFilters()` theo MAC để bắt cả computer đã soft-delete, và từ chối ngay với lỗi rõ ràng "MAC addresses cannot be reused for self-announce once provisioned" thay vì rơi xuống DB unique-violation 500. `GlobalExceptionHandler` message cho `IX_Computers_MacAddress` cũng cập nhật để mô tả đúng cả 2 nguyên nhân (concurrent announce / MAC thuộc record đã xóa). Chính sách reuse: **cấm vĩnh viễn** (option đơn giản trong [NEED INPUT] — không thêm entity `ComputerPurge`); document tại [docs/agent_note.md](agent_note.md) mục "Chính sách MAC address cho self-announce". Test mới: `Announce_MacFromSoftDeletedComputer_IsRefusedPermanently`.
+
+> **`S2-13` Resolved (2026-06-10):** server-side token rotation (TTL + grace) **đã có sẵn từ trước** — `Agent.TokenIssuedAt`, auto-rotate sau `Agent:TokenRotateAfterDays` (mặc định 30d), pending-token grace `Agent:TokenRotationGraceDays` (mặc định 7d), `RotatedAgentToken` trả qua heartbeat, `RevokeAsync` clear toàn bộ token. Phần còn thiếu chỉ là admin audit visibility — đã thêm `ComputerDto.AgentTokenIssuedAt` (`ComputerService.ProjectToDto`, `DepartmentOwnershipService`) và FE hiển thị tooltip "Token issued: ..." trên Agent status badge (`ComputerStatusBadge.tsx`, `ComputersTable.tsx`), kèm cảnh báo "(rotation pending)" nếu token > 30 ngày chưa rotate. Không thêm nút admin force-revoke (đã có endpoint revoke riêng cho mục đích khác).
 
 ### 4.2 Short-term features
 
@@ -525,8 +533,8 @@
 ### Phase 2 — High/Medium + Foundations
 
 - [x] `S1-14` EnsureRolePermissionsGrantableAsync bulk query
-- [ ] `S2-01` Document authz semantics + matrix tests
-- [ ] `S2-02` Split `software.manage` permission
+- [x] `S2-01` Document authz semantics + matrix tests
+- [x] `S2-02` Split `software.manage` permission
 - [x] `S2-03` Pending user not assigned Viewer
 - [x] `S2-04` Email/reset password decision + endpoint
 - [x] `S2-05` RegisterUploadedFileAsync transaction + version lock/touch
@@ -535,26 +543,26 @@
 - [x] `S2-08` ExecuteUpdateAsync reload/ChangeTracker clear audit
 - [x] `S2-09` Heartbeat DTO contract align
 - [ ] `A-01` Distributed cache bus (Redis)
-- [ ] `A-02` WITH RECURSIVE hierarchy query
-- [ ] `A-03` Domain Events Outbox
-- [ ] `A-04` API versioning
+- [x] `A-02` WITH RECURSIVE hierarchy query
+- [x] `A-03` Domain Events Outbox
+- [x] `A-04` API versioning
 - [x] `A-05` BlobGc advisory lock
-- [ ] `A-06` Seeder version tracking
+- [x] `A-06` Seeder version tracking
 
 ### Phase 3 — S2 cleanup + Short-term features + S3
 
-- [ ] `S2-10` Production guard minio default
-- [ ] `S2-11` Station-package unique relax + active-package rule decision
-- [ ] `S2-12` PollAsync catch narrow
-- [ ] `S2-13` Agent token lifetime
-- [ ] `S2-14` CacheIndex GetExistingHashesAsync
-- [ ] `S2-15` CancelJobAsync preserve operational
-- [ ] `S2-16` Announce error hint
-- [ ] `S2-17` ResolveManifestAsync soft-skip terminal
-- [ ] `S2-18` GetMeAsync cache
-- [ ] `S2-19` AnnounceAsync clear error khi DB chặn MAC (rev1: tách từ `S1-04`)
-- [ ] `F-01` Wait-for-idle
-- [ ] `F-02` Maintenance window per Station
+- [x] `S2-10` Production guard minio default
+- [x] `S2-11` Station-package unique relax + active-package rule decision
+- [x] `S2-12` PollAsync catch narrow
+- [x] `S2-13` Agent token lifetime
+- [x] `S2-14` CacheIndex GetExistingHashesAsync
+- [x] `S2-15` CancelJobAsync preserve operational
+- [x] `S2-16` Announce error hint
+- [x] `S2-17` ResolveManifestAsync soft-skip terminal
+- [x] `S2-18` GetMeAsync cache
+- [x] `S2-19` AnnounceAsync clear error khi DB chặn MAC (rev1: tách từ `S1-04`)
+- [x] `F-01` Wait-for-idle
+- [x] `F-02` Maintenance window per Station (backend only — FE admin UI để set `UpdateWindow` còn thiếu, follow-up riêng)
 - [ ] `F-03` Server-pushed commands
 - [ ] `F-04` Inventory + drift detection
 - [ ] `F-05` Rollback automatic
@@ -592,7 +600,7 @@
 3. **[S1-10]** `/me` chỉ trả coarse role-based permissions (preferred) hay tính full ACL Deny logic?
 4. **[S1-13]** Approval policy không-active → "auto-approve with audit warning" hay "block & alert admin"?
 5. **[S1-16]** Git public repository có cần hỗ trợ anonymous clone/pull không? Nếu có, S1-16 phải harden theo route/operation, không strict 401 blanket.
-6. **[S2-01]** ACL Deny global priority cao có thắng ACL Allow scope priority thấp không? Document chính thức.
+6. **[S2-01]** Resolved: Deny (kể cả global) luôn thắng Allow bất kể priority — xem [docs/authorization-semantics.md](authorization-semantics.md).
 7. **[S2-03]** User `Pending` register: (a) không assign role, đợi admin approve mới gán; (b) tạo RoleAssignment với `StartTime = null`?
 8. **[S2-04]** Resolved: dùng admin reset manual qua `PUT /api/users/{id}/password`; chưa thêm email reset/self-service.
 9. **[F-07]** Compliance level cần đạt: GMP/IATF/FDA 21 CFR Part 11? Ảnh hưởng tới signature scope.
@@ -606,11 +614,11 @@
 
 ### 7.3 Product/Operations
 
-14. **[S2-02]** Tách `software.manage` thành 4 permission: có team nào hiện đang dùng role gắn `software.manage` mà chỉ cần 1 phần? *(cần migration mapping)*
-15. **[S2-11]** Station-package unique constraint: hiện có line nào cần share package qua nhiều station không? Nếu có, relax thành `(Station, Package)`. Có giữ rule "mỗi station chỉ một active package" không?
-16. **[S2-13]** Agent token lifetime 30/60/90 ngày? Có chấp nhận admin phải re-enroll PC định kỳ không?
-17. **[F-01]** "Wait-for-idle" có cần flag `HotfixOverride` cho admin force-install giữa lúc test đang chạy không?
-18. **[F-02]** Maintenance window per Station: timezone — UTC hay local time của factory? Daylight saving?
+14. **[S2-02]** Resolved: đã tách thành `software.package.manage`, `software.version.publish`, `software.assignment.manage`, `software.assignment.approve`; `AppDbSeeder.MigrateSoftwarePermissionsAsync` tự gán cả 4 cho role đang có `software.manage`.
+15. **[S2-11]** Resolved: relax thành `(Station, Package)` — 1 package gán nhiều station; giữ nguyên "mỗi station chỉ 1 active package".
+16. **[S2-13]** Resolved: rotation tự động đã có sẵn (30d/7d grace, configurable qua `Agent:TokenRotateAfterDays`/`Agent:TokenRotationGraceDays`), không cần re-enroll thủ công. Chỉ bổ sung admin audit (`AgentTokenIssuedAt` hiển thị qua tooltip).
+17. **[F-01]** Resolved: chưa thêm `HotfixOverride` ở giai đoạn này — chỉ implement skip-when-running cơ bản, giữ PR nhỏ. Bổ sung sau nếu cần.
+18. **[F-02]** Resolved: `Station.UpdateWindow` lưu giờ UTC, không có per-station timezone/DST. Station chưa set `UpdateWindow` (`null`) → không giới hạn.
 19. **[F-05]** Auto-rollback threshold: bao nhiêu PC crash-loop thì rollback toàn bộ station? (5%? 10%?)
 20. **[F-06]** Test app health probe: bắt buộc cho mọi LongRunning app hay opt-in qua `SoftwareVersion.HealthCheckUrl`?
 21. **[F-18]** Test result aggregation: format report do test app team định nghĩa (CSV/JUnit), hay schema chuẩn server-defined? MES integration urgency?
