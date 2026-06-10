@@ -109,6 +109,16 @@ Lý do:
 
 ---
 
+## Chính sách MAC address cho self-announce
+
+`Computer.MacAddress` có unique index **global** ở DB (`DBContext.cs` — không filter theo `IsDeleted`), nên 1 MAC chỉ được provision **đúng 1 lần trong lịch sử**, kể cả sau khi computer record bị soft-delete.
+
+- Self-announce với MAC trùng record đã soft-delete → từ chối ngay với lỗi rõ ràng ("MAC addresses cannot be reused for self-announce once provisioned"), không để rơi xuống DB unique-violation.
+- **Không có đường tự động re-provision lại MAC cũ.** Nếu PC thật sự cần dùng lại (đổi mainboard/NIC giữ nguyên MAC, hoặc tái sử dụng máy cũ): admin pre-register lại bằng enrollment-token flow (gắn vào computer record mới) — không xóa cứng (hard-delete) record cũ trừ khi chắc chắn không còn cần audit trail của nó.
+- Lý do chọn "cấm vĩnh viễn" thay vì cho phép purge/reuse: đơn giản, không cần entity/migration mới, và tránh rủi ro 1 MAC bị gán nhầm cho 2 computer record khác nhau theo thời gian (gây nhiễu audit/lịch sử cài đặt).
+
+---
+
 ## Những điểm khác cần chú ý
 
 1. **Time skew**: PC mất điện 2 ngày bật lại, đồng hồ sai → token expire / TLS lỗi. Force NTP sync trước khi heartbeat.
@@ -222,10 +232,12 @@ Lý do bắt đầu với **Wait-for-idle + Server-side job timeout**: chi phí 
 | **M1** | Process tracking & exit detection | — | Agent biết test app sống/chết, log đầy đủ |
 | **M2** | Restart policy + maintenance mode | M1 | Auto-restart có giới hạn, kỹ thuật can thiệp được |
 | **M3** | Server reporting + dashboard | M1 | Admin thấy trạng thái real-time |
-| **M4** | Session-0 launch fix (`CreateProcessAsUser`) | — (song song được) | GUI app hiện đúng desktop user |
+| **M4** ✅ DONE | Session-0 launch fix (`CreateProcessAsUser`) | — (song song được) | GUI app hiện đúng desktop user |
 | **M5** | OS-level hardening (kiosk, AppLocker) | — | Worker khó tắt; mức operational, không cần code app |
 
 > M1+M2+M3 là core; M4 là technical debt cần xử lý; M5 là customer-side IT, ngoài scope code nhưng phải có hướng dẫn.
+>
+> **M4 đã hoàn thành**: `MProjectAgent/Services/InteractiveProcessLauncher.cs` implement `CreateProcessAsUser` (P/Invoke `WTSEnumerateSessions` + `WTSQueryUserToken` + `DuplicateTokenEx`), được `ProcessSupervisor.StartProcessAsync` gọi qua `InteractiveProcessLauncher.Start(psi)`.
 
 ## A.4 Chi tiết M1 — Process Tracking & Exit Detection
 
