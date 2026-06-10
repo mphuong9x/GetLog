@@ -1,0 +1,43 @@
+DEV PC:
+
+cd C:\Users\Administrator\Desktop\TESS\MProject
+
+dotnet publish MProjectAgent\MProjectAgent.csproj `
+  -c Release `
+  -r win-x64 `
+  --self-contained true `
+  -p:PublishSingleFile=true `
+  -p:IncludeNativeLibrariesForSelfExtract=true `
+  -p:EnableCompressionInSingleFile=true `
+  -p:PublishTrimmed=false `
+  -o artifacts\MProjectAgent-win-x64
+
+-------------------------
+
+Compress-Archive `
+  -Path artifacts\MProjectAgent-win-x64\MProjectAgent.exe,artifacts\MProjectAgent-win-x64\appsettings.json `
+  -DestinationPath artifacts\MProjectAgent-win-x64.zip `
+  -Force
+
+==============================================================
+Agent PC:
+
+C:\Program Files\MProjectAgent
+C:\Program Files\MProjectAgent\MProjectAgent.exe
+C:\Program Files\MProjectAgent\appsettings.json
+
+--------------------------
+
+"Agent": {
+  "ServerUrl": "https://SERVER_IP_OR_DOMAIN:8443",
+  "InstallerToken": "TOKEN_GIONG_SERVER",
+  "AllowUntrustedCertificate": true,
+  "StateDirectory": "C:\\ProgramData\\MProjectAgent"
+}
+
+--------------------------
+
+cd "C:\Program Files\MProjectAgent"
+.\MProjectAgent.exe install
+
+Get-Service MProjectAgent
