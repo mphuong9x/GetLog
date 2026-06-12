@@ -37,7 +37,4 @@ C:\Program Files\MProjectAgent\appsettings.json
 
 --------------------------
 
-cd "C:\Program Files\MProjectAgent"
-.\MProjectAgent.exe install
-
-Get-Service MProjectAgent
+.\MProjectAgent.exe enroll --server 'http://localhost:5107' --computer-id '<COMPUTER_ID>' --token '<ENROLLMENT_TOKEN>' --force
