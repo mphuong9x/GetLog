@@ -6,6 +6,7 @@
 > **Changelog**
 > - v1 (2026-06-16): bản đầu, 7 GAP.
 > - v2 (2026-06-16): bổ sung mục **1.1 Giải phẫu một gói app thật** (`Sample_Software/`); refine **GAP-1** (composite + override 2 tầng/2 định dạng/2 phạm vi) và **GAP-5** (ví dụ `VersionConfig` thật).
+> - v3 (2026-06-16): **GAP-1 có thiết kế** (`docs/gap1_config_override_design.md`) + **HỢP NHẤT** với LimitFile → **GAP-3 gộp vào GAP-1** (1 entity `OverrideFile` có `Kind`, 3 tầng scope, approval Station/Computer). Pilot tracer-bullet **PASS** phần lõi.
 
 ---
 
@@ -117,15 +118,11 @@ Giá trị riêng lưu tại `DataCustomFilePath` (cục bộ per-PC); cờ `IsP
 
 ---
 
-### 🟡 GAP-3 — Đẩy `LimitFile` xuống agent (config-only push)
+### 🟡 GAP-3 — ~~Đẩy `LimitFile` xuống agent~~ → **ĐÃ GỘP VÀO GAP-1**
 
-**Hệ cũ:** file limit/threshold đi kèm app, theo Model.
+**Quyết định (2026-06-16):** "limit file" thực chất là một config override (`Config/LimitConfig.json`). LimitFile thử nghiệm bị **đạp bỏ**, thay bằng entity hợp nhất `OverrideFile` có `Kind` (Config/Limit). Cơ chế GAP-1 (server-side blob-substitution tại manifest) **tự wire LimitFile tới agent** → không còn là hạng mục riêng. Xem `docs/gap1_config_override_design.md`.
 
-**MProject hiện trạng:** `LimitFile` per Model+Station đã có ở server + FE `pages/LimitFiles`, nhưng **agent chưa tham chiếu** → chưa thực sự tới được PC. (Tương ứng F-19 "Hot-config push" trong roadmap.)
-
-**Cần xây dựng:** luồng resolve + deploy `LimitFile` theo Model/Station xuống agent (có thể qua heartbeat khi chỉ đổi config thay vì redeploy cả gói).
-
-**Ưu tiên:** P1. **Effort:** M.
+**Ưu tiên:** — (gộp vào GAP-1).
 
 ---
 
@@ -191,9 +188,9 @@ Giá trị riêng lưu tại `DataCustomFilePath` (cục bộ per-PC); cờ `IsP
 
 | # | Hạng mục | Thay cho | Ưu tiên | Effort | Chặn thay UIStore? |
 |---|---|---|---|---|---|
-| GAP-1 | Tùy biến config per-station/PC | CheckSumCustom | P0 | L | ✅ Có |
+| GAP-1 | Tùy biến config per-station/PC (`OverrideFile`, gộp cả LimitFile) | CheckSumCustom | P0 | L | ✅ Có — **đã có thiết kế** |
 | GAP-2 | UX tại trạm (tray/launcher/login) | UIStore tray | P0 | S→L | ✅ Cần chốt |
-| GAP-3 | LimitFile → agent | limit file theo model | P1 | M | ⚠️ Tùy line |
+| ~~GAP-3~~ | **Gộp vào GAP-1** (OverrideFile Kind=Limit) | limit file theo model | — | — | — |
 | GAP-4 | Agent self-update | AppUpdater | P1 | L | ❌ Không gấp |
 | GAP-5 | Metadata version BOM/FCD/FTU/FW | version fields của Upload | P2 | S–M | ❌ |
 | GAP-6 | Uninstall/cleanup | AutoRemove/CloseAndClear | P2 | S–M | ❌ |
