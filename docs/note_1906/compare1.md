@@ -7,6 +7,7 @@
 > - v1 (2026-06-16): bản đầu, 7 GAP.
 > - v2 (2026-06-16): bổ sung mục **1.1 Giải phẫu một gói app thật** (`Sample_Software/`); refine **GAP-1** (composite + override 2 tầng/2 định dạng/2 phạm vi) và **GAP-5** (ví dụ `VersionConfig` thật).
 > - v3 (2026-06-16): **GAP-1 có thiết kế** (`docs/gap1_config_override_design.md`) + **HỢP NHẤT** với LimitFile → **GAP-3 gộp vào GAP-1** (1 entity `OverrideFile` có `Kind`, 3 tầng scope, approval Station/Computer). Pilot tracer-bullet **PASS** phần lõi.
+> - v4 (2026-06-19): **2 blocker P0 ĐÃ XONG → Phase 1 (thay UIStore) hoàn tất về code.** GAP-1 ✅ (OverrideFile + ConfigBaseline committed; BE-0 đạp-bỏ-LimitFile landed — migration `DropLimitFile`). GAP-2 ✅ code xong (launcher WPF net48 + IPC named-pipe; L-0→L-7 + slice 2a/2b/2c; 2d icon chủ động bỏ; agent test 86/86) — chỉ còn nghiệm thu thủ công trạm thật. **Kế tiếp theo plan: GAP-4 (agent self-update, P1).** Chi tiết GAP-2: `docs/note_1906/gap2_launcher_design.md`.
 
 ---
 
@@ -65,7 +66,7 @@ Sample_Software/                     ← 1 gói = 1 app (1 model + 1 trạm)
 
 ## 3. HẠNG MỤC CẦN BỔ SUNG (trọng tâm)
 
-### 🔴 GAP-1 — Tùy biến config theo từng máy/trạm khi deploy (thay `CheckSumCustom`) — BLOCKER
+### 🔴 GAP-1 — Tùy biến config theo từng máy/trạm khi deploy (thay `CheckSumCustom`) — BLOCKER — ✅ DONE (2026-06-19)
 
 **Hệ cũ làm gì:** Trên cùng một gói app, mỗi *file* có một chính sách (`CheckSumFileModel`) đi kèm gói; với file INI thì khai báo **whitelist key** được phép mang giá trị riêng theo máy (`DUT_IP`, tên trạm/PC, `COM port`, slot, region…). Client trộn **template publish + giá trị riêng lưu cục bộ trên PC** → ghi ra file thật. 4 chế độ:
 
@@ -102,9 +103,11 @@ Giá trị riêng lưu tại `DataCustomFilePath` (cục bộ per-PC); cờ `IsP
 
 **Ưu tiên:** P0 (chặn việc thay UIStore cho trạm có config riêng theo máy). **Effort:** L. *Khuyến nghị làm cơ chế (1) trước để chạy được sớm, (2) bổ sung sau cho file JSON khóa-cứng-một-phần.*
 
+> **Trạng thái (2026-06-19): ✅ DONE.** Cả 2 cơ chế đã có: (1) **OverrideFile** toàn-file theo Model/Station/Computer (resolver + blob-swap ở manifest + authoring API + approval) committed; (2) **ConfigBaseline** (khóa giá trị + whitelist, INI/JSON) committed. **BE-0** đạp-bỏ-LimitFile đã landed (migration `DropLimitFile`). Còn vài enhancement nhỏ ở validator (không chặn). Xem `gap1_config_override_design.md` + `gap_configbaseline_design.md`.
+
 ---
 
-### 🟠 GAP-2 — Trải nghiệm tại trạm cho operator (tray / launcher / login) — CẦN QUYẾT ĐỊNH
+### 🟠 GAP-2 — Trải nghiệm tại trạm cho operator (tray / launcher / login) — ✅ DONE code (2026-06-19), chờ nghiệm thu trạm thật
 
 **Hệ cũ làm gì:** `UIStore` là app **system-tray** có **login operator** và **danh sách app cho công nhân tự chọn/mở lại**.
 
@@ -115,6 +118,8 @@ Giá trị riêng lưu tại `DataCustomFilePath` (cục bộ per-PC); cờ `IsP
 - Nếu cần operator **tự chọn/khởi động lại app** hoặc **login theo ca/người ngay tại trạm** → làm **thin launcher** (tray nhỏ gọi agent cục bộ): liệt kê app được gán cho máy, nút mở/đóng/restart, (tuỳ chọn) login.
 
 **Ưu tiên:** P0 (phải chốt trước khi bỏ UIStore). **Effort:** S (nếu bỏ) → M/L (nếu làm launcher).
+
+> **Quyết định + trạng thái (2026-06-19): ĐÃ CHỐT làm thin launcher — ✅ DONE code.** `MProjectLauncher` (WPF net48, tray) ↔ agent qua named pipe cục bộ; list app + đèn trạng thái + Run/Stop/Restart + gate Run khi đang update + badge "vừa cập nhật" + pane sự kiện gần đây. KHÔNG login/PII operator. L-0→L-7 + slice 2a/2b/2c xong (2d icon chủ động bỏ — tránh dep `System.Drawing.Common` cosmetic); agent test 86/86, launcher build OK; đóng gói qua `scripts/package-agent.ps1`. **Còn lại duy nhất: nghiệm thu thủ công trên 1 trạm thật** (GUI/reboot/đổi ca). Thiết kế đầy đủ: `gap2_launcher_design.md`.
 
 ---
 
@@ -135,6 +140,8 @@ Giá trị riêng lưu tại `DataCustomFilePath` (cục bộ per-PC); cờ `IsP
 **Cần xây dựng:** `AgentRelease` (Version, Sha256, MinServerVersion); server trả `AgentHeartbeatResponse.AgentUpdate`; agent tải + thay exe + restart service. **Khuyến nghị kèm ký số manifest (F-08)** để an toàn.
 
 **Ưu tiên:** P1. **Effort:** L.
+
+> **Trạng thái (2026-06-20): 🚧 ĐANG LÀM — có design doc + slice backend đầu (G4-1) đã land.** Chốt phạm vi: **agent trước** (launcher tái dùng kênh sau), **hoãn F-08** (dùng SHA-256 + endpoint agent đã xác thực + TLS). G4-1: entity `AgentRelease` + migration `AddAgentRelease` + DTO `AgentUpdateInfo` + quyết định offer trong `RecordHeartbeatAsync` (offer khi release active mới hơn nghiêm ngặt; parse `System.Version`, fail-safe) — **additive thuần, backend 427/427 pass**. Còn lại: G4-2 publish (admin upload), G4-3 agent tải+stage+verify, G4-4 swap+restart, G4-5 đóng gói+nghiệm thu. Thiết kế đầy đủ: `gap4_agent_selfupdate_design.md`.
 
 ---
 
@@ -176,11 +183,13 @@ Giá trị riêng lưu tại `DataCustomFilePath` (cục bộ per-PC); cờ `IsP
 ## 4. Lộ trình tối thiểu để "bật công tắc" thay UIStore (Phase 1)
 
 0. **(Nền tảng)** Xác nhận đóng gói **composite** (CPEI_MFG.exe + Config JSON + folder khách) thành **một** `SoftwarePackage`/`SoftwareVersion`, entry point = `CPEI_MFG.exe` — vốn `SoftwareFile` (cây file) đã đáp ứng, chỉ cần kiểm thử với gói `Sample_Software/` thật.
-1. **(Bắt buộc)** GAP-1 — cơ chế tùy biến config theo máy/trạm. Làm **cơ chế (1) override toàn-file theo Model/Station trước** (chạy được sớm với INI của khách), **(2) per-key JSON/INI sau**. *Không có thì app deploy ra thiếu IP/định danh, không chạy đúng.*
-2. **(Bắt buộc)** GAP-2 — chốt headless tự động hay làm thin launcher cho operator.
-3. **(Nên có)** GAP-3 (LimitFile → agent) + GAP-4 (agent self-update).
+1. **(Bắt buộc)** GAP-1 — cơ chế tùy biến config theo máy/trạm. ✅ **DONE**: (1) OverrideFile toàn-file Model/Station/Computer + (2) ConfigBaseline khóa-giá-trị (INI/JSON), đều committed.
+2. **(Bắt buộc)** GAP-2 — thin launcher cho operator. ✅ **DONE code** (chốt làm launcher; chỉ còn nghiệm thu trạm thật).
+3. **(Nên có)** ~~GAP-3 (LimitFile → agent)~~ đã gộp & xong trong GAP-1 + **GAP-4 (agent self-update) ← 🚧 ĐANG LÀM, P1** (G4-1 backend land; design `gap4_agent_selfupdate_design.md`).
 4. **(Kiểm thử)** GAP-6 — Uninstall/cleanup + drift trên PC thật.
 5. GAP-5, GAP-7 làm sau, không chặn.
+
+> **Mốc 2026-06-19:** hai blocker P0 (GAP-1, GAP-2) đã xong về code ⇒ **Phase 1 thay UIStore hoàn tất** (chỉ chờ nghiệm thu trạm thật cho GAP-2). Hạng mục kế tiếp theo plan = **GAP-4**.
 
 ---
 
@@ -188,10 +197,10 @@ Giá trị riêng lưu tại `DataCustomFilePath` (cục bộ per-PC); cờ `IsP
 
 | # | Hạng mục | Thay cho | Ưu tiên | Effort | Chặn thay UIStore? |
 |---|---|---|---|---|---|
-| GAP-1 | Tùy biến config per-station/PC (`OverrideFile`, gộp cả LimitFile) | CheckSumCustom | P0 | L | ✅ Có — **đã có thiết kế** |
-| GAP-2 | UX tại trạm (tray/launcher/login) | UIStore tray | P0 | S→L | ✅ Cần chốt |
-| ~~GAP-3~~ | **Gộp vào GAP-1** (OverrideFile Kind=Limit) | limit file theo model | — | — | — |
-| GAP-4 | Agent self-update | AppUpdater | P1 | L | ❌ Không gấp |
+| GAP-1 | Tùy biến config per-station/PC (`OverrideFile`, gộp cả LimitFile) | CheckSumCustom | P0 | L | **✅ DONE** (committed) |
+| GAP-2 | UX tại trạm (tray/launcher/login) | UIStore tray | P0 | S→L | **✅ DONE code** (chờ nghiệm thu trạm) |
+| ~~GAP-3~~ | **Gộp vào GAP-1** (OverrideFile Kind=Limit) | limit file theo model | — | — | ✅ xong trong GAP-1 |
+| GAP-4 | Agent self-update | AppUpdater | P1 | L | 🚧 **ĐANG LÀM** (G4-1 backend land; không chặn) |
 | GAP-5 | Metadata version BOM/FCD/FTU/FW | version fields của Upload | P2 | S–M | ❌ |
 | GAP-6 | Uninstall/cleanup | AutoRemove/CloseAndClear | P2 | S–M | ❌ |
 | GAP-7 | Hành vi phụ (startup/signal/icon) | misc UIStore | P3 | S | ❌ |
@@ -201,7 +210,7 @@ Giá trị riêng lưu tại `DataCustomFilePath` (cục bộ per-PC); cờ `IsP
 ## 6. Ghi chú
 
 - Phần **phân phối/quản lý theo trạm & model, đẩy/tải chương trình** (mục tiêu cốt lõi) — MProject **đã làm tốt và đầy đủ hơn** hệ cũ.
-- Hai khoảng trống quyết định là **GAP-1 (config riêng theo máy)** và **GAP-2 (UX tại trạm)**.
+- ~~Hai khoảng trống quyết định là **GAP-1 (config riêng theo máy)** và **GAP-2 (UX tại trạm)**.~~ → **Cả hai đã xong (2026-06-19)**; còn lại là các mục không-chặn: **GAP-4** (self-update, kế tiếp), GAP-6 (uninstall/cleanup), GAP-5 (metadata version), GAP-7 (phụ).
 - Một "app" thực tế là **composite** (launcher của ta + config + chương trình test của khách) — xem mục 1.1; cần coi là **một package-version**.
 - Tham chiếu mẫu gói thật: `Sample_Software/` (`Debug/CPEI_MFG.exe`, `Config/*.json`, `FTU_efbb_..._UTP-G3-Touch-Pro/data/{config_files,custom_config_files}`).
 - Tham chiếu code hệ cũ: `Old_program/UIStore/UiStore/Services/CheckSumCustom/`, `Old_program/Upload/Upload/`.
