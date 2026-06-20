@@ -101,7 +101,7 @@ public class SftpDownloadService
 
                 logMessage($"Downloading from {host}...");
                 progressUpdate(0, total);
-                int workerCount = 
+
                 int currentWorkers = sessions.Count;
 
                 var tasks = new Task[currentWorkers];
@@ -189,7 +189,7 @@ public class SftpDownloadService
                         }
                     }
 
-                    Walk(session, full, options, files, logMessage)
+                    Walk(session, full, options, files, logMessage);
                 }
                 else
                 {
@@ -205,7 +205,7 @@ public class SftpDownloadService
                         {
                             if (options.MacList is { Count: > 0 })
                             {
-                                bool hasMac = false
+                                bool hasMac = false;
                                 foreach (var mac in options.MacList)
                                 {
                                     if (item.Name.IndexOf(mac, StringComparison.OrdinalIgnoreCase) >= 0)
@@ -233,14 +233,14 @@ public class SftpDownloadService
     {
         return name.EndsWith(".log", StringComparison.OrdinalIgnoreCase)
             || name.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)
-            || name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)
+            || name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase);
     }
 
     static bool DirExists(Session session, string path)
     {
         try
         {
-            session.ListDirectory(path)
+            session.ListDirectory(path);
             return true;
         }
         catch
@@ -251,10 +251,10 @@ public class SftpDownloadService
 
     static string ExtractStation(string remote)
     {
-        var parts = remote.Split('/', StringSplitOptions.RemoveEmptyEntries)
+        var parts = remote.Split('/', StringSplitOptions.RemoveEmptyEntries);
 
-        if (parts.Length >= 3) 
-            return parts[2]
+        if (parts.Length >= 3)
+            return parts[2];
 
         return "UNKNOWN";
     }
