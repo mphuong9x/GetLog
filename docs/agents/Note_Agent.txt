@@ -1,40 +1,38 @@
-DEV PC:
+Dev PC:
+================================================================
+###: Clear old service
+sc query MProjectAgent
+sc qc MProjectAgent      # xem BINARY_PATH_NAME hiện tại
 
-cd C:\Users\Administrator\Desktop\TESS\MProject
+sc stop MProjectAgent 
+sc delete MProjectAgent
 
-dotnet publish MProjectAgent\MProjectAgent.csproj `
-  -c Release `
-  -r win-x64 `
-  --self-contained true `
-  -p:PublishSingleFile=true `
-  -p:IncludeNativeLibrariesForSelfExtract=true `
-  -p:EnableCompressionInSingleFile=true `
-  -p:PublishTrimmed=false `
-  -o artifacts\MProjectAgent-win-x64
+Đảm bảo không còn tiến trình giữ file:
+Get-Process MProjectAgent, MProjectLauncher -ErrorAction SilentlyContinue | Stop-Process -Force
 
--------------------------
+----------------------------------------------------------------
+###: Build new program
+cd <repo_root>          # vd: C:\Users\Administrator\Desktop\TESS\MProject
+powershell -File scripts\package-agent.ps1 -Configuration Release
 
-Compress-Archive `
-  -Path artifacts\MProjectAgent-win-x64\MProjectAgent.exe,artifacts\MProjectAgent-win-x64\appsettings.json `
-  -DestinationPath artifacts\MProjectAgent-win-x64.zip `
-  -Force
+copy vào C:\Program Files\MProjectAgent
 
-==============================================================
+
+================================================================
+
 Agent PC:
+================================================================
+###: Cài + chạy service (chạy từ thư mục mới, quyền Admin)
 
-C:\Program Files\MProjectAgent
-C:\Program Files\MProjectAgent\MProjectAgent.exe
-C:\Program Files\MProjectAgent\appsettings.json
+& "C:\Program Files\MProjectAgent\MProjectAgent.exe" install
 
---------------------------
+###: Sửa file trong thư mục cài C:\Program Files\MProjectAgent\appsettings.json (KHÔNG phải file trong repo):
+
 
 "Agent": {
-  "ServerUrl": "https://SERVER_IP_OR_DOMAIN:8443",
-  "InstallerToken": "TOKEN_GIONG_SERVER",
-  "AllowUntrustedCertificate": true,
+  "ServerUrl": "http://<server-host>:<port>",   // vd http://localhost:5107 hoặc https://192.168.x.x:8443
+  "InstallerToken": "<token>",                  // chỉ dùng cho enroll lần đầu
+  "AllowUntrustedCertificate": true,            // true nếu server HTTPS self-signed
   "StateDirectory": "C:\\ProgramData\\MProjectAgent"
 }
 
---------------------------
-
-.\MProjectAgent.exe enroll --server 'http://localhost:5107' --computer-id '<COMPUTER_ID>' --token '<ENROLLMENT_TOKEN>' --force
