@@ -8,6 +8,7 @@
 > - v2 (2026-06-16): bổ sung mục **1.1 Giải phẫu một gói app thật** (`Sample_Software/`); refine **GAP-1** (composite + override 2 tầng/2 định dạng/2 phạm vi) và **GAP-5** (ví dụ `VersionConfig` thật).
 > - v3 (2026-06-16): **GAP-1 có thiết kế** (`docs/gap1_config_override_design.md`) + **HỢP NHẤT** với LimitFile → **GAP-3 gộp vào GAP-1** (1 entity `OverrideFile` có `Kind`, 3 tầng scope, approval Station/Computer). Pilot tracer-bullet **PASS** phần lõi.
 > - v4 (2026-06-20): **GAP-1/GAP-2/GAP-3 DONE**; **GAP-4 (agent self-update) DONE** end-to-end (3 slice A/B/C). ⚠️ **Còn nợ bảo mật trước production: ký số bản phát hành (F-08)** — xem GAP-4. Self-update đang gate `Agent:SelfUpdateEnabled=false` mặc định.
+> - v5 (2026-06-20): **GAP-7 ĐÃ XÁC NHẬN** (audit code thật, 0 dòng code): startup → `LauncherBootstrapper`; show/shutdown.signal → `AgentCommand` + tray; icon DONE; "đóng & xóa cache" để GAP-6 phụ trách. Còn lại: GAP-6 (kiểm thử Uninstall), GAP-5 (metadata version), F-08 (ký số).
 
 ---
 
@@ -173,13 +174,15 @@ Giá trị riêng lưu tại `DataCustomFilePath` (cục bộ per-PC); cờ `IsP
 
 ---
 
-### ⚪ GAP-7 — Hành vi phụ (nhỏ)
+### ✅ GAP-7 — Hành vi phụ (nhỏ) — **ĐÃ XÁC NHẬN (2026-06-20)**
 
-- `IsOpenWithSystem` / startup shortcut: agent đã là service nên thường không cần — xác nhận.
-- `show.signal` / `shutdown.signal` (IPC file): đã thay bằng `AgentCommand` — xác nhận đủ.
-- Hiển thị icon app, "đóng & xóa cache" theo app: cân nhắc nếu giữ launcher (GAP-2).
+Audit 3 mục con đối chiếu code thật → không phát sinh việc code mới:
 
-**Ưu tiên:** P3. **Effort:** S.
+- `IsOpenWithSystem` / startup shortcut: **đã phủ, còn chắc hơn**. Hệ cũ tạo `.lnk` trong Startup folder (`StartupShortcut.cs`); MProject agent là Windows service (auto-start) và `LauncherBootstrapper` tự mở `MProjectLauncher.exe` vào console session đang active, mở lại mỗi 30s nếu operator đóng → không cần shortcut per-user.
+- `show.signal` / `shutdown.signal` (IPC file): **đã thay hoàn toàn**. Điều khiển app = `AgentCommand` (Restart/KillAndRestart/StopApp/Cancel…) + named-pipe IPC launcher (status/run/stop/restart); hiện window = tray double-click/"Mở"; thoát = tray "Thoát"; stop khi self-update = `sc stop` (không còn file-poll 1s).
+- Hiển thị icon app: **DONE** (`AppRowViewModel` decode `IconBase64`). "Đóng & xóa cache" theo app: **không làm riêng** — trùng GAP-6 (Uninstall/cleanup) và cache content-addressed đã ref-count/GC tự dọn → để GAP-6 phụ trách.
+
+**Ưu tiên:** P3 — **DONE (xác nhận)**. **Effort:** S (0 dòng code).
 
 ---
 
@@ -190,7 +193,7 @@ Giá trị riêng lưu tại `DataCustomFilePath` (cục bộ per-PC); cờ `IsP
 2. ✅ **(Bắt buộc)** GAP-2 — thin launcher cho operator (`MProjectLauncher`). **DONE** (verify trạm thật PASS).
 3. ✅ **(Nên có)** GAP-3 (gộp vào GAP-1) + GAP-4 (agent self-update). **DONE** — ⚠️ **GAP-4 còn nợ F-08 (ký số) trước khi bật production.**
 4. **(Kiểm thử)** GAP-6 — Uninstall/cleanup + drift trên PC thật.
-5. GAP-5, GAP-7 làm sau, không chặn.
+5. ✅ GAP-7 — hành vi phụ: **đã xác nhận (2026-06-20)**, 0 code. GAP-5 làm sau, không chặn.
 6. **(Bảo mật)** **F-08 — ký số bản phát hành agent**, bắt buộc trước khi bật self-update production (xem GAP-4).
 
 ---
@@ -206,7 +209,7 @@ Giá trị riêng lưu tại `DataCustomFilePath` (cục bộ per-PC); cờ `IsP
 | **F-08** | **Ký số bản phát hành agent** (điều kiện bật self-update production) | — | **P1** | M + key ops | ⚠️ **CHƯA — bắt buộc trước khi bật `SelfUpdateEnabled`** |
 | GAP-5 | Metadata version BOM/FCD/FTU/FW | version fields của Upload | P2 | S–M | ❌ |
 | GAP-6 | Uninstall/cleanup | AutoRemove/CloseAndClear | P2 | S–M | ❌ |
-| GAP-7 | Hành vi phụ (startup/signal/icon) | misc UIStore | P3 | S | ❌ |
+| GAP-7 | Hành vi phụ (startup/signal/icon) | misc UIStore | P3 | S | ✅ **DONE** (xác nhận, 0 code) |
 
 ---
 
