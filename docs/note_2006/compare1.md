@@ -9,6 +9,9 @@
 > - v3 (2026-06-16): **GAP-1 có thiết kế** (`docs/gap1_config_override_design.md`) + **HỢP NHẤT** với LimitFile → **GAP-3 gộp vào GAP-1** (1 entity `OverrideFile` có `Kind`, 3 tầng scope, approval Station/Computer). Pilot tracer-bullet **PASS** phần lõi.
 > - v4 (2026-06-20): **GAP-1/GAP-2/GAP-3 DONE**; **GAP-4 (agent self-update) DONE** end-to-end (3 slice A/B/C). ⚠️ **Còn nợ bảo mật trước production: ký số bản phát hành (F-08)** — xem GAP-4. Self-update đang gate `Agent:SelfUpdateEnabled=false` mặc định.
 > - v5 (2026-06-20): **GAP-7 ĐÃ XÁC NHẬN** (audit code thật, 0 dòng code): startup → `LauncherBootstrapper`; show/shutdown.signal → `AgentCommand` + tray; icon DONE; "đóng & xóa cache" để GAP-6 phụ trách. Còn lại: GAP-6 (kiểm thử Uninstall), GAP-5 (metadata version), F-08 (ký số).
+> - v8 (2026-06-21): **GAP-6 (Uninstall/cleanup) CODE DONE** — hướng A (Uninstall job thật) + cờ opt-in `AutoRemoveOnUnassign` mặc định OFF; agent xóa install dir có guardrail + giải ref cache; agent 113 + BE 441 pass, FE typecheck OK. **Chờ nghiệm thu PC thật** (destructive). ⇒ **Toàn bộ GAP trong tài liệu đã code xong**, chỉ còn các hạng mục nghiệm thu E2E trên trạm thật.
+> - v7 (2026-06-21): **GAP-5 (metadata version có cấu trúc) DONE** — thêm 5 cột `BomVersion/FcdVersion/FtuVersion/FwVersion/RegionVersion` trên `SoftwareVersion` (migration `AddSoftwareVersionMetadata`), nhập khi tạo version + hiển thị chip trên FE; BE 439/439 + FE typecheck OK. **Còn lại: chỉ GAP-6** (Uninstall/cleanup — hoãn, cần PC thật + destructive; chủ dự án chọn làm GAP-5 trước).
+> - v6 (2026-06-20): **F-08 (ký số bản phát hành) DONE** — chữ ký RSA/SHA-256 tạo offline (private key ngoài server), server lưu opaque, agent verify **fail-closed** trước khi apply; tool `scripts/sign-agent-release.ps1`; doc `docs/note_2006/F08_release_signing.md`. BE 49 + agent 99 tests pass. Còn lại: **GAP-6** (kiểm thử Uninstall), **GAP-5** (metadata version) — đều P2, không chặn.
 
 ---
 
@@ -139,38 +142,46 @@ Giá trị riêng lưu tại `DataCustomFilePath` (cục bộ per-PC); cờ `IsP
 - **Slice C — quản lý:** RBAC `agentrelease.manage`/`.read`; `AgentReleaseService` + controller `api/v1/agent-releases` (publish multipart/list/activate/delete); FE trang **Agent releases**. Đã thêm AgentRelease vào ref-guard của `BlobGcService` (tránh GC xoá blob release đang dùng).
 - Tài liệu chi tiết: memory `project_gap4_self_update.md`.
 
-> ### ⚠️ NỢ BẢO MẬT BẮT BUỘC TRƯỚC PRODUCTION — Ký số bản phát hành (F-08)
-> **Hiện chỉ verify SHA256**, mà SHA256 chỉ chứng minh "bytes khớp hash **server báo**", KHÔNG chứng minh "đúng bản build hợp lệ". Self-update **thay exe agent và chạy như LocalSystem trên mọi máy** → nếu kẻ xấu **chiếm server/DB**, **tráo blob trong storage**, hoặc **MITM** (⚠️ hệ đang đặt `AllowUntrustedCertificate=true` trên LAN nhà máy → TLS yếu) thì hash tự khớp theo nội dung độc → **RCE diện rộng / supply-chain**.
-> **F-08 = ký số:** ký release bằng **private key** (giữ kín ở pipeline phát hành), agent nhúng **public key** và **verify chữ ký trước khi apply** → kẻ xấu không giả được chữ ký dù chiếm server/storage/TLS.
-> **Triển khai:** thêm cột `Signature` trên `AgentRelease` + ký lúc `PublishAsync` (Slice C) + trả trong `AgentUpdateInfo` + agent verify (sau SHA256) bằng public key nhúng. (Tùy chọn thêm: Authenticode-sign `MProjectAgent.exe`.) Phần khó nhất là **quản lý/bảo vệ private key**, không phải code.
-> **Quy tắc:** **chưa có F-08 thì KHÔNG bật `SelfUpdateEnabled` ở production** (pilot có kiểm soát thì chấp nhận được).
+> ### ✅ NỢ BẢO MẬT — Ký số bản phát hành (F-08) — **DONE (2026-06-20)**
+> **Trước đây chỉ verify SHA256** (chỉ chứng minh "bytes khớp hash **server báo**", không chứng minh "đúng bản build hợp lệ"). Self-update **thay exe agent và chạy như LocalSystem** → kẻ xấu chiếm server/DB, tráo blob, hoặc MITM (⚠️ `AllowUntrustedCertificate=true` trên LAN) có thể đẩy bản độc.
+> **Đã làm (F-08):** chữ ký **RSA-3072 PKCS#1 / SHA-256** tạo **offline** (private key **giữ ngoài server**, ở pipeline); server **chỉ lưu opaque** (`AgentRelease.Signature`) và trả trong `AgentUpdateInfo`; agent **nhúng public key** (`Agent:ReleasePublicKeyPem`) và **verify sau SHA-256, trước khi stage/apply**, **fail-closed** (thiếu/sai chữ ký hoặc chưa cấu hình key ⇒ từ chối). Chiếm server/DB/TLS **không giả được** chữ ký vì không có private key.
+> **Tool + doc:** `scripts/sign-agent-release.ps1` (tạo khóa + ký, không cần openssl) ↔ tương thích `openssl dgst -sha256 -sign`; chi tiết `docs/note_2006/F08_release_signing.md`.
+> **Quy tắc vẫn giữ:** bật `SelfUpdateEnabled=true` ở production **phải** kèm cấu hình `ReleasePublicKeyPem` (nếu trống, agent từ chối mọi update).
 
-**Ưu tiên:** GAP-4 lõi DONE; **F-08 = P1 trước khi bật self-update production.** **Effort F-08:** M (code) + vận hành key.
+**Ưu tiên:** GAP-4 lõi DONE; **F-08 DONE.** Tùy chọn tăng cường về sau: Authenticode-sign exe, server pre-verify, compiled-in public key (xem doc F-08).
 
 ---
 
-### 🟢 GAP-5 — Metadata version có cấu trúc (BOM / FCD / FTU / FW / Region)
+### ✅ GAP-5 — Metadata version có cấu trúc (BOM / FCD / FTU / FW / Region) — **DONE (2026-06-21)**
 
 **Hệ cũ:** `Upload` tách 4–5 trường version riêng; các program test **báo lên SFIS** theo các trường này. **Xác nhận từ `Sample_Software/`** — `Config/ProgramConfig.json > VersionConfig` chứa thật:
 ```json
 "VersionConfig": { "FWVer":"32127", "FCDVer":"101001", "FTUVer":"102431816", "BOMVer":"113-04247-11", "RegionVer":"WORLD" }
 ```
 
-**MProject hiện trạng:** `SoftwareVersion` chỉ có 1 `VersionNumber` + `Label` + `Changelog`.
+**Đã làm:** thêm **5 cột tường minh** trên `SoftwareVersion` — `BomVersion/FcdVersion/FtuVersion/FwVersion/RegionVersion` (nullable; migration `AddSoftwareVersionMetadata`) thay vì nhồi vào `Label`. DTO gói gọn trong `VersionMetadata` (request `Create/Update` + response `detail/summary/latest`); service `ApplyMetadata` (full-replace, trim). FE: ô nhập khi tạo version (modal "New version") + hiển thị **chip BOM/FW/FCD/FTU/Region** dưới mã version. BE 439/439 + FE typecheck OK.
 
-**Cần xây dựng (nếu nhà máy còn cần tra cứu/đối soát/báo SFIS):** thêm **metadata key-value có cấu trúc** cho version (`{FW, FCD, FTU, BOM, Region}`) thay vì nhồi vào `Label`; hiển thị/lọc trên FE. *Lưu ý:* các trị này hiện nằm trong file config (GAP-1) → cân nhắc cho metadata version **sinh ra/đồng bộ** với giá trị override để tránh lệch.
+**Còn dư địa (không chặn):** lọc theo metadata trên FE; nhập metadata trong **NewSoftwareWizard** (hiện chỉ ở modal "New version"); cân nhắc đồng bộ/sinh metadata từ giá trị override config (GAP-1) để tránh lệch.
 
-**Ưu tiên:** P2. **Effort:** S–M.
+**Ưu tiên:** P2 — **DONE**. **Effort:** S–M.
 
 ---
 
-### 🟢 GAP-6 — Kiểm chứng & hoàn thiện luồng Uninstall/cleanup (thay `AutoRemove`/`CloseAndClear`)
+### ✅ GAP-6 — Luồng Uninstall/cleanup (thay `AutoRemove`/`CloseAndClear`) — **CODE DONE (2026-06-21), chờ nghiệm thu PC thật**
 
 **Hệ cũ:** cờ `AutoRemove` (gỡ khi không còn gán), `CloseAndClear` (đóng & dọn khi thoát).
 
-**MProject hiện trạng:** có `InstallationJobType.Uninstall` nhưng cần xác minh end-to-end: xóa file + gỡ shortcut + dừng process + cập nhật `PcInstallationRecord`; và drift báo đúng khi PC lệch assignment.
+**Audit ban đầu:** `InstallationJobType.Uninstall` có enum nhưng **chưa bao giờ được tạo**; `JobExecutor` không đọc `JobType`; bỏ gán chỉ mark record + (không) StopApp → **file không bị xóa, cache không thu**. Shortcut = N/A (tray launcher).
 
-**Ưu tiên:** P2. **Effort:** S (kiểm thử) → M (nếu thiếu).
+**Đã làm (hướng A, cờ opt-in mặc định OFF — chủ dự án chốt):**
+- **Cờ** `SoftwarePackage.AutoRemoveOnUnassign` (default false; migration `AddAutoRemoveOnUnassign`) + toggle FE ở modal "New package".
+- **Server:** bỏ gán (`RemoveAssignmentAsync`) khi cờ ON → tạo **Uninstall job** cho mỗi PC còn cài (hủy job cũ + persist trước để không vướng unique index); `PollAsync` trả Uninstall job kể cả khi không còn assignment; manifest Uninstall không mang file; complete Uninstall → mark `PcInstallationRecord=Uninstalled`. Cờ OFF → giữ hành vi cũ (mark uninstalled, giữ file).
+- **Agent:** `JobExecutor` nhánh Uninstall (Ack→Installing→Complete): dừng app nếu đang supervise → gỡ catalog (`AppCatalogStore.RemoveAsync`) → giải ref cache (`CacheIndex.RemoveDeployedFilesForPackageAsync` + decrement → GC thu blob) → **xóa install dir qua `InstallDirGuard`** (chỉ trong `InstallRoot.Base`, không == base, chống traversal, idempotent, lỗi→Failed).
+- **Tests:** agent 113 (guardrail + cleanup) , BE 441 (flag tạo job + poll + complete→Uninstalled), FE typecheck OK.
+
+**Còn lại:** **nghiệm thu trên PC thật** (thao tác destructive): cờ ON → bỏ gán → app dừng, `D:\Apps\<pkg>` bị xóa, cache GC thu, record Uninstalled; cờ OFF → giữ file như cũ.
+
+**Ưu tiên:** P2 — **code DONE**, chờ E2E PC thật. **Effort:** đã làm (M).
 
 ---
 
@@ -191,10 +202,13 @@ Audit 3 mục con đối chiếu code thật → không phát sinh việc code m
 0. **(Nền tảng)** Xác nhận đóng gói **composite** (CPEI_MFG.exe + Config JSON + folder khách) thành **một** `SoftwarePackage`/`SoftwareVersion`, entry point = `CPEI_MFG.exe` — vốn `SoftwareFile` (cây file) đã đáp ứng, chỉ cần kiểm thử với gói `Sample_Software/` thật.
 1. ✅ **(Bắt buộc)** GAP-1 — cơ chế tùy biến config theo máy/trạm (`OverrideFile`, gộp LimitFile). **DONE.**
 2. ✅ **(Bắt buộc)** GAP-2 — thin launcher cho operator (`MProjectLauncher`). **DONE** (verify trạm thật PASS).
-3. ✅ **(Nên có)** GAP-3 (gộp vào GAP-1) + GAP-4 (agent self-update). **DONE** — ⚠️ **GAP-4 còn nợ F-08 (ký số) trước khi bật production.**
-4. **(Kiểm thử)** GAP-6 — Uninstall/cleanup + drift trên PC thật.
-5. ✅ GAP-7 — hành vi phụ: **đã xác nhận (2026-06-20)**, 0 code. GAP-5 làm sau, không chặn.
-6. **(Bảo mật)** **F-08 — ký số bản phát hành agent**, bắt buộc trước khi bật self-update production (xem GAP-4).
+3. ✅ **(Nên có)** GAP-3 (gộp vào GAP-1) + GAP-4 (agent self-update). **DONE.**
+4. ✅ **(Code)** GAP-6 — Uninstall/cleanup (hướng A, cờ opt-in OFF). **CODE DONE (2026-06-21)** — chờ nghiệm thu PC thật (destructive).
+5. ✅ GAP-7 — hành vi phụ: **đã xác nhận (2026-06-20)**, 0 code. ✅ **GAP-5 — metadata version: DONE (2026-06-21).**
+6. ✅ **(Bảo mật)** **F-08 — ký số bản phát hành agent. DONE (2026-06-20)** — điều kiện bật self-update production đã đủ (cấu hình `ReleasePublicKeyPem` khi bật).
+
+> **Tất cả GAP đã code xong.** Việc còn lại để "bật công tắc" là **nghiệm thu E2E trên trạm thật** theo
+> checklist: **[phase1_acceptance_runbook.md](phase1_acceptance_runbook.md)** (đóng gói composite + GAP-1/2/4/5/6 + F-08, mục A→H).
 
 ---
 
@@ -205,10 +219,10 @@ Audit 3 mục con đối chiếu code thật → không phát sinh việc code m
 | GAP-1 | Tùy biến config per-station/PC (`OverrideFile`, gộp cả LimitFile) | CheckSumCustom | P0 | L | ✅ **DONE** |
 | GAP-2 | UX tại trạm (tray/launcher) | UIStore tray | P0 | S→L | ✅ **DONE** (verify trạm thật PASS) |
 | ~~GAP-3~~ | **Gộp vào GAP-1** (OverrideFile Kind=Limit) | limit file theo model | — | — | — |
-| GAP-4 | Agent self-update | AppUpdater | P1 | L | ✅ **DONE** — ⚠️ nợ F-08 trước production |
-| **F-08** | **Ký số bản phát hành agent** (điều kiện bật self-update production) | — | **P1** | M + key ops | ⚠️ **CHƯA — bắt buộc trước khi bật `SelfUpdateEnabled`** |
-| GAP-5 | Metadata version BOM/FCD/FTU/FW | version fields của Upload | P2 | S–M | ❌ |
-| GAP-6 | Uninstall/cleanup | AutoRemove/CloseAndClear | P2 | S–M | ❌ |
+| GAP-4 | Agent self-update | AppUpdater | P1 | L | ✅ **DONE** |
+| **F-08** | **Ký số bản phát hành agent** (điều kiện bật self-update production) | — | **P1** | M + key ops | ✅ **DONE** (2026-06-20) — cấu hình `ReleasePublicKeyPem` khi bật |
+| GAP-5 | Metadata version BOM/FCD/FTU/FW | version fields của Upload | P2 | S–M | ✅ **DONE** (2026-06-21) |
+| GAP-6 | Uninstall/cleanup (Uninstall job, cờ opt-in OFF) | AutoRemove/CloseAndClear | P2 | M | ✅ **CODE DONE** (2026-06-21) — chờ E2E PC thật |
 | GAP-7 | Hành vi phụ (startup/signal/icon) | misc UIStore | P3 | S | ✅ **DONE** (xác nhận, 0 code) |
 
 ---
