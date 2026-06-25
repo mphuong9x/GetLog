@@ -13,7 +13,8 @@ Get-Process MProjectAgent, MProjectLauncher -ErrorAction SilentlyContinue | Stop
 ----------------------------------------------------------------
 ###: Build new program
 cd <repo_root>          # vd: C:\Users\Administrator\Desktop\TESS\MProject
-powershell -File scripts\package-agent.ps1 -Configuration Release
+
+powershell -ExecutionPolicy Bypass -File scripts\package-agent.ps1
 
 copy vào C:\Program Files\MProjectAgent
 
