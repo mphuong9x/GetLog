@@ -83,6 +83,26 @@ MProject là **một trung tâm điều hành tập trung** dạng web. Người
 - **Tự cập nhật an toàn, chống giả mạo** (có "chữ ký số" xác thực nguồn gốc).
 - **Khóa thông số kỹ thuật theo dòng sản phẩm** – bảo vệ chất lượng.
 
+### 4.3. Những gì lãnh đạo sẽ TẬN MẮT nhìn thấy (không cần hiểu kỹ thuật)
+
+> Phần này quy mọi lợi ích về **hình ảnh cụ thể, có thể nhìn thấy ngay trên màn hình** – không dùng thuật ngữ kỹ thuật. "Trăm nghe không bằng một thấy."
+
+| Tình huống hằng ngày | Hệ cũ – cảnh thực tế nhìn thấy | Hệ mới – cảnh thực tế nhìn thấy |
+|---|---|---|
+| Muốn biết toàn xưởng đang chạy ra sao | Phải **đi bộ xuống từng máy**, hỏi từng người | Mở **một màn hình web**: mỗi máy là một ô – **ô xanh** = đang chạy tốt, **ô đỏ** = đang lỗi |
+| Cập nhật phần mềm cho hàng chục máy | Kỹ thuật viên **cầm USB chạy tới từng máy**, mất cả buổi | **Vài cú click** trên màn hình, **xem thanh tiến độ** đẩy xuống cả nhóm máy |
+| Một máy lỗi giữa ca sản xuất | Chờ có người phát hiện → báo → chạy tới xử lý | **Ô máy chuyển đỏ ngay**; hệ thống tự khởi động lại / tự quay về bản tốt → **không phải dừng chuyền** |
+| Khách hàng / kiểm toán hỏi "máy này chạy gì, ai đổi, khi nào?" | Lục sổ và file rời rạc, **nhiều khi không trả lời được** | Mở **màn hình nhật ký**, chỉ tận nơi: "máy X – bản Y – người Z đổi lúc… – người duyệt…" |
+| Ai được quyền cài/sửa phần mềm | **Dùng chung một mật khẩu**, không biết ai đang dùng | **Danh sách tài khoản hiện rõ trên màn hình**; nhân sự nghỉ việc thì **khóa bằng một nút** |
+
+**Đề xuất: buổi demo trực tiếp ~15 phút ngay trong cuộc họp.** Cho lãnh đạo xem tận mắt 4 cảnh:
+1. Mở **bảng điều khiển web** → thấy toàn bộ máy trạm xanh/đỏ trên một màn hình.
+2. **Đẩy một bản cập nhật** xuống nhóm máy thử nghiệm → xem tiến độ chạy ngay.
+3. **Cố tình đẩy một bản lỗi** → hệ thống **tự quay lui**, máy vẫn chạy bình thường.
+4. Mở **màn hình nhật ký & phê duyệt** → xem rõ ai làm gì, khi nào, ai duyệt (đúng thứ kiểm toán cần).
+
+> *Gợi ý trình bày:* trong báo cáo và slide, **ưu tiên dùng ảnh chụp màn hình thật** của bảng điều khiển thay cho sơ đồ/biểu tượng – để lãnh đạo "thấy là tin".
+
 ---
 
 ## 5. SO SÁNH TRƯỚC / SAU THEO 4 TRỤC TRỌNG TÂM

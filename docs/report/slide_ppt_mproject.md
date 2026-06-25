@@ -56,6 +56,18 @@
 
 ---
 
+## Slide 5B — TRĂM NGHE KHÔNG BẰNG MỘT THẤY (DEMO TRỰC TIẾP)
+**Tiêu đề:** Những gì lãnh đạo sẽ tận mắt nhìn thấy
+**Ý chính (kịch bản demo ~15 phút – không cần hiểu kỹ thuật):**
+- 1️⃣ Mở **một màn hình web** → thấy **toàn bộ máy trạm**: ô xanh = chạy tốt, ô đỏ = đang lỗi.
+- 2️⃣ **Đẩy phần mềm xuống một nhóm máy** chỉ bằng vài cú click → xem thanh tiến độ chạy ngay.
+- 3️⃣ Cố tình đẩy một bản lỗi → hệ thống **tự quay lui**, máy vẫn chạy → **không phải dừng chuyền**.
+- 4️⃣ Mở **màn hình nhật ký**: "máy nào – chạy gì – ai đổi – khi nào – ai duyệt" → đúng thứ kiểm toán cần.
+- *Hình:* **ảnh chụp màn hình thật** của bảng điều khiển (ưu tiên ảnh thật thay cho biểu tượng).
+- *Ghi chú:* Slide quyết định với lãnh đạo không chuyên kỹ thuật – nên **demo trực tiếp** ngay trong buổi họp. "Thấy là tin."
+
+---
+
 ## Slide 6 — TRỤC 1: TỐI ƯU ⚡ (xanh dương)
 **Tiêu đề:** Tối ưu – Hiệu quả vận hành
 **Trước → Sau:**
