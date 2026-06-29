@@ -1,0 +1,7 @@
+To remove or kill git process:
+
+git reset --soft HEAD~1					//reset closest git commit on local
+
+tasklist | findstr git					//get git process
+
+taskkill /F /IM git-remote-https.exe			//kill git-remote process
