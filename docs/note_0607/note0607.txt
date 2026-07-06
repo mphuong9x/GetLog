@@ -1,0 +1,60 @@
+Khái niệm chung
+
+Một Package chứa nhiều Version. Mỗi version: upload files → khai báo entry point 
+(+ icon/watch/run-mode) → khai báo overridable/preserve-local → Release → Pin vào station. 
+Agent chỉ deploy version đã Released và được pin.
+
+Có 2 đường tạo: Wizard "New software" (nhanh, gộp tạo package + gán station + upload + release) 
+và thao tác thủ công trên version dropdown (Manifest / Overridable). Vì Wizard chỉ hỏi launch file cơ bản, 
+các trường nâng cao (watch process, icon, preserve-local, run mode) phải đặt ở Manifest/Overridable.
+
+---
+Loại 1 — Có cấu trúc, entry là .exe (kiểu Sample_Software / CPEI_MFG)
+
+Đặc điểm: entry Debug/CPEI_MFG.exe (có icon sẵn), long-running, file config chứa creds là overridable. 
+Đơn giản nhất — làm gọn trong Wizard:
+
+1. New software → nhập tên package → Next.
+2. Deploy to: chọn Model + (các) Station → Next.
+3. Upload files: chọn nguyên thư mục gói (giữ nguyên cây từ root vì relative-path ..\ cần đúng) → tự sang Review.
+4. Review: tick Release immediately → ở ô Launch file chọn Debug/CPEI_MFG.exe → Release & finish.
+5. (Tùy chọn) Mở Manifest trên version để đặt Health check URL nếu app có; icon để Auto (rút từ exe).
+6. (Tùy chọn) Mở Overridable → tick các file config cần override per-station (vd Config/LimitConfig.json, limits.ini).
+
+---
+Loại 2 — Phi cấu trúc, entry là .bat (kiểu Cpp_Software)
+
+Đặc điểm phải xử lý riêng: (a) entry là .bat → không có icon; (b) .bat chạy xong exe thật rồi thoát → cần Watch process; 
+(c) có DB/*.mdb là state runtime → Preserve-local. Vì cần 3 trường nâng cao, đừng release ngay trong Wizard:
+
+1. New software → tạo package → gán station → Upload nguyên thư mục.
+2. Ở Review: BỎ tick Release immediately → Finish (version ở trạng thái Draft).
+3. Trên hàng version → menu Manifest:
+  - Launch file = CTS_UBNT/Launch/UTPG3T00T01.bat
+  - Run mode = Long-running (hoặc Run once nếu là tool chạy 1 lần)
+  - Icon file = chọn 1 file .png/.ico trong gói (vì .bat không có icon)
+  - Watch process = exe test thật mà .bat khởi động (agent theo dõi tiến trình này, không phải .bat)
+  - Save.
+4. Menu Overridable Files:
+  - Tick Preserve local cho DB/xxx.mdb (không bao giờ ghi đè, giữ state của trạm)
+  - Tick Overridable cho các file config cần khác nhau theo station
+  - Lưu ý: một path không thể vừa overridable vừa preserve-local (UI tự bỏ chọn chéo). Save.
+5. Menu Release → version chuyển Released.
+6. Pin version vào station: vào Deployment Matrix (hoặc trang Software) chọn version vừa Released cho từng station. 
+(Wizard làm bước này tự động khi release-immediately; ở đây làm tay vì đã tách.)
+
+---
+Cờ mức Package (cả 2 loại)
+
+Wizard tạo package với mặc định: Auto-start = ON, Force-close to update = OFF, Auto-remove on unassign = OFF. 
+Muốn đổi → bấm icon bút chì (Edit package) trên hàng package:
+- Auto-start after deploy: OFF nếu muốn operator tự mở app từ launcher (không tự chạy sau deploy).
+- Force-close to update: ON nếu chấp nhận agent tự đóng app đang chạy để cài bản mới ngay (nếu OFF, update chờ tới khi 
+app thoát — có thể kẹt nếu app chạy liên tục).
+
+Lưu ý vận hành
+
+- Release bắt buộc có entry point (nếu không agent deploy nhưng không chạy được). 
+Gói data-only không có app thì hiện chưa có nút trong UI để bật allowNoEntryPoint — nói tôi nếu cần thêm.
+- Với Loại 2, nếu Watch process khai sai đường dẫn, mỗi lần mở app agent chờ 30s rồi mới fallback sang giám sát 
+chính .bat — kiểm lại path nếu thấy launcher chậm.
