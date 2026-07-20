@@ -158,17 +158,25 @@ public partial class DownloadLogsView : System.Windows.Controls.UserControl
             };
 
             var service = new SftpDownloadService();
+            var dispatcher = System.Windows.Application.Current.Dispatcher;
             await service.DownloadLogsAsync(selectedServers, outputDir, options,
             msg =>
             {
-                System.Windows.Application.Current.Dispatcher.Invoke(() => Log(msg));
+                dispatcher.BeginInvoke(() => Log(msg));
             },
             (done, total) =>
             {
-                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                // Throttle: chỉ cập nhật UI mỗi ~1% (hoặc khi hoàn tất) để tránh dồn Dispatcher
+                // khi tải rất nhiều file nhỏ từ tối đa 10 luồng song song.
+                int step = total > 200 ? total / 100 : 1;
+                if (done != total && done % step != 0) return;
+
+                // BeginInvoke: không chặn luồng tải; Math.Max tránh thanh tiến độ giật lùi khi cập nhật out-of-order.
+                dispatcher.BeginInvoke(() =>
                 {
                     DownloadProgress.Maximum = total > 0 ? total : 1;
-                    DownloadProgress.Value = done;
+                    if (done == 0 || done >= DownloadProgress.Value)
+                        DownloadProgress.Value = done;
                     ProgressText.Text = $"{done}/{total}";
                 });
             });

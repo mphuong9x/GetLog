@@ -48,7 +48,7 @@ public class SftpDownloadService
 
                 try
                 {
-                    using (var session = new Session())
+                    using (var session = new Session { ExecutablePath = WinScpRuntime.ExecutablePath })
                     {
                         session.Open(sessionOptions);
 
@@ -79,7 +79,7 @@ public class SftpDownloadService
                 {
                     try
                     {
-                        var s = new Session();
+                        var s = new Session { ExecutablePath = WinScpRuntime.ExecutablePath };
                         s.Open(sessionOptions);
                         sessions.Add(s);
                     }
@@ -98,6 +98,7 @@ public class SftpDownloadService
                 int done = 0;
                 int total = allFiles.Count;
                 int errors = 0;
+                var failedFiles = new System.Collections.Concurrent.ConcurrentBag<string>();
 
                 logMessage($"Downloading from {host}...");
                 progressUpdate(0, total);
@@ -136,9 +137,10 @@ public class SftpDownloadService
                                 int count = Interlocked.Increment(ref done);
                                 progressUpdate(count, total);
                             }
-                            catch (Exception)
+                            catch (Exception ex)
                             {
                                 Interlocked.Increment(ref errors);
+                                failedFiles.Add($"{allFiles[i]} — {ex.Message}");
                             }
                         }
                     });
@@ -150,6 +152,20 @@ public class SftpDownloadService
                     s.Dispose();
 
                 logMessage($"DONE on {host}. Downloaded {done}/{total} files." + (errors > 0 ? $" ({errors} failed)" : ""));
+
+                if (errors > 0)
+                {
+                    logMessage($"  {errors} file(s) failed on {host} (showing up to 10):");
+                    int shown = 0;
+                    foreach (var f in failedFiles)
+                    {
+                        logMessage($"    x {f}");
+                        if (++shown >= 10) break;
+                    }
+                    if (errors > shown)
+                        logMessage($"    ... and {errors - shown} more.");
+                }
+
                 progressUpdate(total, total);
             }
         });
