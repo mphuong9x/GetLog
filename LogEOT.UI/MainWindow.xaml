@@ -188,7 +188,7 @@
                 BorderBrush="#E2E8F0"
                 BorderThickness="1"
                 CornerRadius="8">
-            <TextBlock Text="UI - EOT - TE - CFT"
+            <TextBlock Text="UI - TE - EOT - CFT"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center"
                        FontSize="20"
@@ -202,25 +202,40 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <StackPanel x:Name="ButtonsPanel" Grid.Column="0" VerticalAlignment="Stretch" Margin="0,0,15,0">
-                <Button Height="44" Width="180" Click="Nav_Pending_Click" Margin="0,0,0,10">
+            <Grid x:Name="ButtonsPanel" Grid.Column="0" VerticalAlignment="Top" Margin="0,0,15,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Button Grid.Row="0" Grid.Column="0" Height="44" Width="150" Click="Nav_Pending_Click" Margin="0,0,10,10">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="Download Logs" Foreground="White" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
 
-                <Button Height="44" Width="180" Click="Analyze_Click" Margin="0,0,0,10">
+                <Button Grid.Row="0" Grid.Column="1" Height="44" Width="150" Click="Analyze_Click" Margin="0,0,0,10">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="Analyze Logs" Foreground="White" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
 
-                <Button Height="44" Width="180" Click="Home_Click">
+                <Button Grid.Row="1" Grid.Column="0" Height="44" Width="150" Click="GetMac_Click" Margin="0,0,10,0">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Home" Foreground="White" VerticalAlignment="Center"/>
+                        <TextBlock Text="Get MAC" Foreground="White" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
-            </StackPanel>
+
+                <Button Grid.Row="1" Grid.Column="1" Height="44" Width="150" Click="AudioLog_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Audio Logs" Foreground="White" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
 
             <Border Grid.Column="1"
                     Background="White"
@@ -229,17 +244,29 @@
                     Height="{Binding ActualHeight, ElementName=ButtonsPanel}"
                     VerticalAlignment="Top"
                     CornerRadius="8">
-                <TextBox x:Name="ResultLogBox"
-                         TextWrapping="Wrap" 
-                         AcceptsReturn="True" 
-                         VerticalScrollBarVisibility="Auto" 
-                         IsReadOnly="True" 
-                         Background="Transparent"
-                         BorderThickness="0"
-                         FontFamily="Consolas"
-                         FontSize="13"
-                         Foreground="#1E293B"
-                         Padding="10"/>
+                <Grid>
+                    <TextBox x:Name="ResultLogBox"
+                             TextWrapping="Wrap"
+                             AcceptsReturn="True"
+                             VerticalScrollBarVisibility="Auto"
+                             IsReadOnly="True"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             FontFamily="Consolas"
+                             FontSize="13"
+                             Foreground="#1E293B"
+                             Padding="10"/>
+                    <Border x:Name="StatusBanner"
+                            VerticalAlignment="Top"
+                            CornerRadius="8,8,0,0"
+                            Padding="12,8"
+                            Visibility="Collapsed">
+                        <TextBlock x:Name="StatusText"
+                                   FontWeight="SemiBold"
+                                   FontSize="13"
+                                   TextWrapping="Wrap"/>
+                    </Border>
+                </Grid>
             </Border>
         </Grid>
 

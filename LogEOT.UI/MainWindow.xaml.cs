@@ -3,6 +3,8 @@ using LogEOT.Infrastructure.Exporters;
 using LogEOT.Infrastructure.Services;
 using System.Collections.ObjectModel;
 using System.Windows;
+using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace LogEOT.UI;
 
@@ -13,6 +15,9 @@ public partial class MainWindow : Window
     private List<LogResult>? _results;
     private Views.AnalyzeLogsView? _analyzeView;
     private Views.DownloadLogsView? _downloadView;
+    private Views.GetMacView? _getMacView;
+    private Views.AudioLogView? _audioLogView;
+    private DispatcherTimer? _statusTimer;
 
     public MainWindow()
     {
@@ -28,6 +33,30 @@ public partial class MainWindow : Window
         ResultLogBox.AppendText($"[{DateTime.Now:HH:mm:ss}] {message}\r\n");
         ResultLogBox.ScrollToEnd();
     }
+
+    // Prominent colored banner over the log box to announce task completion.
+    public void ShowStatus(string message, bool success = true)
+    {
+        StatusText.Text = (success ? "✔  " : "✖  ") + message;
+        StatusBanner.Background = new SolidColorBrush(HexColor(success ? "#DCFCE7" : "#FEE2E2"));
+        StatusText.Foreground = new SolidColorBrush(HexColor(success ? "#166534" : "#991B1B"));
+        StatusBanner.Visibility = Visibility.Visible;
+
+        if (_statusTimer == null)
+        {
+            _statusTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(8) };
+            _statusTimer.Tick += (s, e) =>
+            {
+                _statusTimer!.Stop();
+                StatusBanner.Visibility = Visibility.Collapsed;
+            };
+        }
+        _statusTimer.Stop();
+        _statusTimer.Start();
+    }
+
+    private static System.Windows.Media.Color HexColor(string hex) =>
+        (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(hex);
 
     private void Analyze_Click(object sender, RoutedEventArgs e)
     {
@@ -54,9 +83,8 @@ public partial class MainWindow : Window
         }
 
         var keys = GetActiveKeys();
-        bool isAudioLog = view.IsAudioLog;
 
-        if (!isAudioLog && keys.Count == 0)
+        if (keys.Count == 0)
         {
             LogMessage("Error: Please input at least one key.");
             return;
@@ -65,16 +93,11 @@ public partial class MainWindow : Window
         try
         {
             LogMessage($"Starting analysis in folder: {folder}");
-            if (isAudioLog)
-                LogMessage("Mode: Audio Logs Analysis");
-            else
-                LogMessage($"Search Keys count: {keys.Count}");
+            LogMessage($"Search Keys count: {keys.Count}");
 
             var service = new LogProcessingService();
 
-            _results = await Task.Run(() =>
-                service.ProcessFolder(folder, keys, isAudioLog)
-            );
+            _results = await Task.Run(() => service.ProcessFolder(folder, keys));
 
             LogMessage($"Analyze finished successfully. Logs processed: {_results.Count}");
 
@@ -87,7 +110,7 @@ public partial class MainWindow : Window
             var dialog = new Microsoft.Win32.SaveFileDialog
             {
                 Filter = "Excel File|*.xlsx",
-                FileName = isAudioLog ? "Audio_Log_Result.xlsx" : "LogEOT_Result.xlsx"
+                FileName = "LogEOT_Result.xlsx"
             };
 
             if (dialog.ShowDialog() != true)
@@ -98,18 +121,11 @@ public partial class MainWindow : Window
 
             LogMessage($"Exporting to {dialog.FileName}...");
             var exporter = new ExcelExporter();
-            
-            if (isAudioLog)
-            {
-                exporter.ExportAudio(dialog.FileName, _results);
-            }
-            else
-            {
-                var exportKeys = GetActiveKeys();
-                exporter.Export(dialog.FileName, _results, exportKeys);
-            }
+            var exportKeys = GetActiveKeys();
+            exporter.Export(dialog.FileName, _results, exportKeys);
 
             LogMessage("Export completed successfully.");
+            ShowStatus($"Export complete — {_results.Count} log(s) processed");
         }
         catch (Exception ex)
         {
@@ -117,10 +133,22 @@ public partial class MainWindow : Window
         }
     }
 
-    private void Home_Click(object sender, RoutedEventArgs e)
+    private void GetMac_Click(object sender, RoutedEventArgs e)
     {
-        MainContent.Content = new Views.WelcomeView();
-        LogMessage("Returned to Home screen.");
+        if (MainContent.Content is not Views.GetMacView)
+        {
+            _getMacView ??= new Views.GetMacView(LogMessage, ShowStatus);
+            MainContent.Content = _getMacView;
+        }
+    }
+
+    private void AudioLog_Click(object sender, RoutedEventArgs e)
+    {
+        if (MainContent.Content is not Views.AudioLogView)
+        {
+            _audioLogView ??= new Views.AudioLogView(LogMessage, ShowStatus);
+            MainContent.Content = _audioLogView;
+        }
     }
 
     private List<(string Key, string AltKey, string ColumnName)> GetActiveKeys()
@@ -135,7 +163,7 @@ public partial class MainWindow : Window
     {
         if (MainContent.Content is not Views.DownloadLogsView)
         {
-            _downloadView ??= new Views.DownloadLogsView(LogMessage);
+            _downloadView ??= new Views.DownloadLogsView(LogMessage, ShowStatus);
             MainContent.Content = _downloadView;
         }
     }

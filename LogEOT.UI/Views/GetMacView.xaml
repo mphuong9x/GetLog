@@ -1,0 +1,58 @@
+<UserControl x:Class="LogEOT.UI.Views.GetMacView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d"
+             d:DesignHeight="300" d:DesignWidth="600">
+    <Border Background="White"
+            BorderBrush="#E2E8F0"
+            BorderThickness="1"
+            Padding="15"
+            CornerRadius="8">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Text="Get MAC List"
+                       FontSize="16"
+                       FontWeight="SemiBold"
+                       Foreground="#0F172A"
+                       Margin="0,0,0,10"/>
+
+            <StackPanel Grid.Row="1" Margin="0,10,0,0">
+                <Grid Margin="0,0,0,15">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="100"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="90"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Input Dir:" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#334155"/>
+                    <TextBox x:Name="InputDirBox" Grid.Column="1" MinHeight="36" Margin="0,0,10,0" Tag="Select folder containing log files..." IsReadOnly="True" VerticalContentAlignment="Center"/>
+                    <Button Grid.Column="2" Content="Browse" MinHeight="36" Background="#0067C0" Foreground="White" BorderThickness="0" Cursor="Hand" Click="Browse_Click"/>
+                </Grid>
+
+                <Grid Margin="0,0,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="100"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Options:" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#334155"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <CheckBox x:Name="RecursiveCheckBox" Content="Include subfolders" IsChecked="True" Margin="0,0,15,0"/>
+                        <CheckBox x:Name="RemoveDuplicateCheckBox" Content="Remove duplicate MAC" IsChecked="True"/>
+                    </StackPanel>
+                </Grid>
+
+                <Border Height="1" Background="#E2E8F0" Margin="0,15,0,15"/>
+
+                <Button Content="Get MAC" Width="180" Height="40" Background="#0067C0" Foreground="White" BorderThickness="0" Cursor="Hand" Click="GetMac_Click" HorizontalAlignment="Center" Margin="0,5,0,15"/>
+
+                <TextBlock x:Name="SummaryText" TextAlignment="Center" FontSize="13" Foreground="#0F172A" TextWrapping="Wrap"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

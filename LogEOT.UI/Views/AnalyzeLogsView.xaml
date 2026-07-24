@@ -14,7 +14,6 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
@@ -56,11 +55,7 @@
                 </Button>
             </Grid>
 
-            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,15">
-                <CheckBox x:Name="AudioLogsCheckBox" Content="Audio Logs" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#334155"/>
-            </StackPanel>
-
-            <Grid Grid.Row="2" Margin="0,0,0,10">
+            <Grid Grid.Row="1" Margin="0,0,0,10">
                 <TextBlock Text="Search Box"
                            FontSize="16"
                            FontWeight="SemiBold"
@@ -68,7 +63,7 @@
                            VerticalAlignment="Center"/>
             </Grid>
 
-            <DataGrid Grid.Row="3"
+            <DataGrid Grid.Row="2"
                       ItemsSource="{Binding Keys}"
                       AutoGenerateColumns="False"
                       CanUserAddRows="True">
@@ -98,7 +93,7 @@
                 </DataGrid.Columns>
             </DataGrid>
             
-            <Button Grid.Row="4" Content="Run" Width="180" Height="40" Background="#0067C0" Foreground="White" BorderThickness="0" Cursor="Hand" Click="Run_Click" HorizontalAlignment="Center" Margin="0,15,0,0"/>
+            <Button Grid.Row="3" Content="Run" Width="180" Height="40" Background="#0067C0" Foreground="White" BorderThickness="0" Cursor="Hand" Click="Run_Click" HorizontalAlignment="Center" Margin="0,15,0,0"/>
         </Grid>
     </Border>
 </UserControl>

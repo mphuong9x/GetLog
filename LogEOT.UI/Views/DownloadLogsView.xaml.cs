@@ -11,11 +11,13 @@ namespace LogEOT.UI.Views;
 public partial class DownloadLogsView : System.Windows.Controls.UserControl
 {
     private readonly Action<string>? _logMessage;
+    private readonly Action<string, bool>? _notify;
 
-    public DownloadLogsView(Action<string>? logMessage = null)
+    public DownloadLogsView(Action<string>? logMessage = null, Action<string, bool>? notify = null)
     {
         InitializeComponent();
         _logMessage = logMessage;
+        _notify = notify;
     }
 
     private void Log(string message) => _logMessage?.Invoke(message);
@@ -27,6 +29,59 @@ public partial class DownloadLogsView : System.Windows.Controls.UserControl
         {
             OutputDirBox.Text = dialog.SelectedPath;
         }
+    }
+
+    private void AddServer_Click(object sender, RoutedEventArgs e)
+    {
+        var input = Microsoft.VisualBasic.Interaction.InputBox("Enter server IP address:", "Add Server", "192.168.240.");
+        var ip = input?.Trim();
+
+        if (string.IsNullOrEmpty(ip))
+            return;
+
+        if (!System.Net.IPAddress.TryParse(ip, out _))
+        {
+            Log($"Invalid server address: {ip}");
+            return;
+        }
+
+        foreach (var child in ServerPanel.Children)
+        {
+            if (child is System.Windows.Controls.CheckBox existing && existing.Content is string ec &&
+                string.Equals(ec.Trim(), ip, StringComparison.OrdinalIgnoreCase))
+            {
+                Log($"Server already added: {ip}");
+                return;
+            }
+        }
+
+        var user = Microsoft.VisualBasic.Interaction.InputBox("Enter username:", "Add Server", "user").Trim();
+        if (string.IsNullOrEmpty(user))
+        {
+            Log("Username is required. Server not added.");
+            return;
+        }
+
+        var pass = Microsoft.VisualBasic.Interaction.InputBox("Enter password:", "Add Server", "");
+        if (string.IsNullOrEmpty(pass))
+        {
+            Log("Password is required. Server not added.");
+            return;
+        }
+
+        var checkbox = new System.Windows.Controls.CheckBox
+        {
+            Content = ip,
+            IsChecked = true,
+            Margin = new Thickness(0, 0, 15, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Tag = new SftpServer { Host = ip, UserName = user, Password = pass },
+            ToolTip = $"User: {user}"
+        };
+
+        int index = ServerPanel.Children.IndexOf(AddServerButton);
+        ServerPanel.Children.Insert(index, checkbox);
+        Log($"Added server: {ip} (user: {user}, this session only)");
     }
 
     private void ListMacCheckBox_Checked(object sender, RoutedEventArgs e)
@@ -64,10 +119,16 @@ public partial class DownloadLogsView : System.Windows.Controls.UserControl
         bool pass = PassCheckBox.IsChecked ?? false;
         bool fail = FailCheckBox.IsChecked ?? false;
 
-        var selectedServers = new List<string>();
-        if (Server52CheckBox.IsChecked == true) selectedServers.Add("192.168.240.52");
-        if (Server20CheckBox.IsChecked == true) selectedServers.Add("192.168.240.20");
-        if (Server21CheckBox.IsChecked == true) selectedServers.Add("192.168.240.21");
+        var selectedServers = new List<SftpServer>();
+        foreach (var child in ServerPanel.Children)
+        {
+            if (child is System.Windows.Controls.CheckBox cb && cb.IsChecked == true && cb.Content is string ip)
+            {
+                var trimmed = ip.Trim();
+                if (trimmed.Length == 0) continue;
+                selectedServers.Add(cb.Tag is SftpServer s ? s : new SftpServer { Host = trimmed });
+            }
+        }
 
         if (selectedServers.Count == 0)
         {
@@ -159,7 +220,7 @@ public partial class DownloadLogsView : System.Windows.Controls.UserControl
 
             var service = new SftpDownloadService();
             var dispatcher = System.Windows.Application.Current.Dispatcher;
-            await service.DownloadLogsAsync(selectedServers, outputDir, options,
+            int downloaded = await service.DownloadLogsAsync(selectedServers, outputDir, options,
             msg =>
             {
                 dispatcher.BeginInvoke(() => Log(msg));
@@ -194,6 +255,8 @@ public partial class DownloadLogsView : System.Windows.Controls.UserControl
                     Log($"Error removing duplicates: {ex.Message}");
                 }
             }
+
+            _notify?.Invoke($"Download complete — {downloaded} log(s) downloaded", true);
         }
         catch (Exception ex)
         {

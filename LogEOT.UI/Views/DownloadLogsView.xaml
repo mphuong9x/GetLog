@@ -30,10 +30,10 @@
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="Servers:" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#334155"/>
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                        <CheckBox x:Name="Server52CheckBox" Content="192.168.240.52" Margin="0,0,15,0"/>
-                        <CheckBox x:Name="Server20CheckBox" Content="192.168.240.20" Margin="0,0,15,0"/>
-                        <CheckBox x:Name="Server21CheckBox" Content="192.168.240.21" Margin="0,0,15,0"/>
+                    <StackPanel x:Name="ServerPanel" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <CheckBox x:Name="Server20CheckBox" Content="192.168.240.20" Margin="0,0,15,0" VerticalAlignment="Center"/>
+                        <CheckBox x:Name="Server21CheckBox" Content="192.168.240.21" Margin="0,0,15,0" VerticalAlignment="Center"/>
+                        <Button x:Name="AddServerButton" Content="+" Width="28" Height="24" Padding="0" FontSize="16" FontWeight="Bold" Background="#0067C0" Foreground="White" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center" Click="AddServer_Click" ToolTip="Add a server address (this session only)"/>
                     </StackPanel>
                 </Grid>
 

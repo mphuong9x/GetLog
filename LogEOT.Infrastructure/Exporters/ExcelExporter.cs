@@ -73,8 +73,8 @@ public class ExcelExporter
 
                 if (firstMetric != null)
                 {
-                    sheet.Cell(2, col).Value = firstMetric.Upper;
-                    sheet.Cell(3, col).Value = firstMetric.Lower;
+                    SetNumeric(sheet.Cell(2, col), firstMetric.Upper);
+                    SetNumeric(sheet.Cell(3, col), firstMetric.Lower);
                 }
             }
 
@@ -94,7 +94,7 @@ public class ExcelExporter
                     var metric = group?.Metrics.FirstOrDefault(m => m.Frequency == frequencies[i]);
                     if (metric != null)
                     {
-                        sheet.Cell(rowIdx, col).Value = metric.Magnitude;
+                        SetNumeric(sheet.Cell(rowIdx, col), metric.Magnitude);
                     }
                 }
                 rowIdx++;
@@ -108,6 +108,15 @@ public class ExcelExporter
         }
 
         workbook.SaveAs(filePath);
+    }
+
+    // Write as a number so Cpk formulas (AVERAGE/STDEV) work; keep raw text if it is not numeric.
+    private static void SetNumeric(IXLCell cell, string raw)
+    {
+        if (double.TryParse(raw, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var d))
+            cell.Value = d;
+        else
+            cell.Value = raw;
     }
 
     private void WriteSheet(IXLWorksheet sheet,

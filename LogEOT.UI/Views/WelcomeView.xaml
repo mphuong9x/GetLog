@@ -28,6 +28,10 @@
                     <Run Text="•"/><Run Text=" Ấn nút "/><Run Text="&quot;Download Logs&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" để dùng chức năng tải file log."/>
                     <LineBreak/>
                     <Run Text="•"/><Run Text=" Ấn nút "/><Run Text="&quot;Analyze Logs&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" để dùng chức năng xử lý data."/>
+                    <LineBreak/>
+                    <Run Text="•"/><Run Text=" Ấn nút "/><Run Text="&quot;Get MAC&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" để lấy danh sách MAC từ tên file log."/>
+                    <LineBreak/>
+                    <Run Text="•"/><Run Text=" Ấn nút "/><Run Text="&quot;Audio Logs&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" để xuất data Cpk theo function test ra Excel."/>
                 </TextBlock>
             </StackPanel>
 
@@ -42,6 +46,10 @@
                     <Run Text="•"/><Run Text=" 点击 "/><Run Text="&quot;Download Logs&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" 按钮以下载日志文件。"/>
                     <LineBreak/>
                     <Run Text="•"/><Run Text=" 点击 "/><Run Text="&quot;Analyze Logs&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" 按钮以处理数据。"/>
+                    <LineBreak/>
+                    <Run Text="•"/><Run Text=" 点击 "/><Run Text="&quot;Get MAC&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" 按钮从日志文件名提取 MAC 列表。"/>
+                    <LineBreak/>
+                    <Run Text="•"/><Run Text=" 点击 "/><Run Text="&quot;Audio Logs&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" 按钮按测试项导出 Cpk 数据到 Excel。"/>
                 </TextBlock>
             </StackPanel>
 
@@ -56,6 +64,10 @@
                     <Run Text="•"/><Run Text=" Click the "/><Run Text="&quot;Download Logs&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" button to download log files."/>
                     <LineBreak/>
                     <Run Text="•"/><Run Text=" Click the "/><Run Text="&quot;Analyze Logs&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" button to process data."/>
+                    <LineBreak/>
+                    <Run Text="•"/><Run Text=" Click the "/><Run Text="&quot;Get MAC&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" button to extract a MAC list from log filenames."/>
+                    <LineBreak/>
+                    <Run Text="•"/><Run Text=" Click the "/><Run Text="&quot;Audio Logs&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" button to export Cpk data by function test to Excel."/>
                 </TextBlock>
             </StackPanel>
         </Grid>

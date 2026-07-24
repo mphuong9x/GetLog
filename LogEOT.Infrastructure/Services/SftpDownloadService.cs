@@ -17,19 +17,21 @@ public class SftpDownloadService
         _config = config ?? new SftpConfig();
     }
 
-    public async Task DownloadLogsAsync(
-        List<string> hosts,
+    public async Task<int> DownloadLogsAsync(
+        List<SftpServer> servers,
         string localRoot,
         ScanOptions options,
         Action<string> logMessage,
         Action<int, int> progressUpdate)
     {
-        await Task.Run(() =>
+        return await Task.Run(() =>
         {
+            int grandTotal = 0;
             Directory.CreateDirectory(localRoot);
 
-            foreach (var host in hosts)
+            foreach (var server in servers)
             {
+                var host = server.Host;
                 logMessage($"--- Processing Server {host} ---");
 
                 var sessionOptions = new SessionOptions
@@ -37,8 +39,8 @@ public class SftpDownloadService
                     Protocol = Protocol.Sftp,
                     HostName = host,
                     PortNumber = _config.Port,
-                    UserName = _config.UserName,
-                    Password = _config.Password,
+                    UserName = string.IsNullOrEmpty(server.UserName) ? _config.UserName : server.UserName,
+                    Password = string.IsNullOrEmpty(server.Password) ? _config.Password : server.Password,
                     SshHostKeyPolicy = SshHostKeyPolicy.GiveUpSecurityAndAcceptAny
                 };
 
@@ -147,6 +149,7 @@ public class SftpDownloadService
                 }
 
                 Task.WaitAll(tasks);
+                grandTotal += done;
 
                 foreach (var s in sessions)
                     s.Dispose();
@@ -168,6 +171,8 @@ public class SftpDownloadService
 
                 progressUpdate(total, total);
             }
+
+            return grandTotal;
         });
     }
 

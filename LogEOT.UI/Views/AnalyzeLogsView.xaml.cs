@@ -12,8 +12,6 @@ public partial class AnalyzeLogsView : System.Windows.Controls.UserControl
         _logMessage = logMessage;
     }
 
-    public bool IsAudioLog => AudioLogsCheckBox.IsChecked ?? false;
-
     private void Browse_Click(object sender, System.Windows.RoutedEventArgs e)
     {
         var dialog = new System.Windows.Forms.FolderBrowserDialog();

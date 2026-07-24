@@ -20,8 +20,6 @@ public class LogParser
             result.Values[key.ColumnName] = null;
         }
 
-        // Build a list of all search patterns: each maps to a ColumnName
-        // For keys with AltKey, we create two entries pointing to the same column
         var searchEntries = new List<(string SearchKey, string ColumnName)>();
         foreach (var key in keys)
         {
@@ -37,7 +35,6 @@ public class LogParser
             .ToDictionary(g => g.Key, g => g.ToList());
 
         var occurrences = new Dictionary<string, int>();
-        // Track how many values already filled per column (for multi-occurrence keys)
         var columnFilled = new Dictionary<string, int>();
 
         foreach (var line in File.ReadLines(filePath))
@@ -67,7 +64,6 @@ public class LogParser
                     
                     var entry = kvp.Value[count];
 
-                    // Only set if column hasn't been filled yet (first match wins)
                     if (result.Values[entry.ColumnName] == null)
                     {
                         result.Values[entry.ColumnName] = value;
@@ -89,16 +85,16 @@ public class LogParser
         var currentGroup = new List<AudioMetric>();
         string currentGroupName = "Unknown";
         string? currentFreq = null;
+        bool currentIsSeal = false;
 
         foreach (var line in File.ReadLines(filePath))
         {
-            if (line.Contains("Run [SL-AUD-ETH] HF Mic seal Test", StringComparison.OrdinalIgnoreCase))
-                break;
-
             var groupMatch = GroupNameRegex.Match(line);
             if (groupMatch.Success)
             {
                 currentGroupName = groupMatch.Groups[1].Value.Trim();
+                // Function tests with "seal" in the name have no MAGNITUDE data and are skipped.
+                currentIsSeal = currentGroupName.Contains("seal", StringComparison.OrdinalIgnoreCase);
             }
 
             if (string.IsNullOrEmpty(result.MAC))
@@ -117,7 +113,7 @@ public class LogParser
                 continue;
             }
 
-            if (currentFreq != null)
+            if (currentFreq != null && !currentIsSeal)
             {
                 var magMatch = MagnitudeRegex.Match(line);
                 if (magMatch.Success)
@@ -171,4 +167,4 @@ public class LogParser
         
         return extracted.Trim('"');
     }
-}
+}
