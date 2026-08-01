@@ -1,0 +1,12 @@
+chọn file start là xong.
+  - Trong chương trình test có kiến trúc chuẩn thường gồm 3 folder, trong đó FTU... là folder chương trình function test của khách hàng gửi, 
+chúng tôi thường chỉ sủa 1 số file trong /data (VD C:\Users\Administrator\Desktop\Sample_Software\EOT_Sample_CSharp_UTPG3T00T01\FTU_efbb_1.0.24_3.18.16_UTP-G3-Touch-Pro\data), 
+config là thư mục chứa các file config, thường đụng tới nhiều khi cần thay đổi mã sản phẩm, thông số như lô hàng,... những config này sẽ nạp vào chương trình để chạy, 
+và debug là thư mục relese của chương trình test (có lẽ vậy, tôi không code từ đầu nên không chắc), ở hệ thống cũ debug sẽ cần thay đổi mỗi khi đội lập trình của chúng tôi code, 
+nâng cấp hoặc thêm các chức năng cho chương trình test, cần thay đồng bộ cho tất cả các chương trình test để hoạt động đồng bộ cùng 1 phiên bản. 
+Còn nếu trong trường hợp vận hành bình thường, chúng tôi chỉ thường thay đổi nội dung các file trong config, và /data của FTU để tạo 
+chương trình mới và thay đổi khi có lô hàng với BOM, MEBOM,..mới để phù hợp cho từng trạm, máy,...
+  Trước kia ở hệ thống cũ có phần chọn  checksum, setting,... để thay đổi các value cụ thể trong /data của FTU (các file .ini)
+  - Thông thường trong quá trình test 1 sản phẩm, khi bom, mebom ,.. thay đổi là chúng ta cần tạo 1 chương trình mới, nhưng các phần cần thay đổi chủ yếu nằm ở /config và /data của ftu.
+  Cũng cần có cơ chế tương tự như hệ thống cũ cho phép sửa chương trình ở từng máy, vì các máy sẽ có các cổng kết nối, thông số không giống nhau trong 1 số trường hợp
+  Hãy đánh giá, phân tích kỹ cho tôi, kết hợp với các mô hình tương tự trong thực tế, hỏi thêm tôi nếu cần thêm thông tin,... để xây dựng phần software này một cách tối ưu nhất.
