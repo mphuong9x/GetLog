@@ -1,0 +1,340 @@
+================================================================================
+ PHAN TICH: LUU TRU TEST RESULT RECORDS O QUY MO 1-2000 PC
+ Ngay: 2026-07-30
+ Pham vi: bang TestResultRecords (Test Monitor / thu thap ket qua test tu ten file log)
+ Nguon: doc code that (entity, migration, query service, ingest, agent scanner, FE)
+        + do kich thuoc row truc tiep tren DB dev TESSDB
+================================================================================
+
+
+TRANG THAI THUC HIEN (cap nhat 2026-07-30)
+--------------------------------------------------------------------------------
+  DA LAM (BE 620/620 + FE 94/94 + agent 150/150 xanh, da verify tren Postgres that):
+    #1  Day toan bo aggregation xuong SQL (5 endpoint)
+    #2  Bo date range -> chi chon 1 NGAY + streak neo vao cuoi ngay duoc chon
+        DINH NGHIA NGAY (chot 2026-07-30, theo yeu cau chu du an):
+          "Ngay 15/05" = NGAY LICH 00:00 -> 24:00 gio dia phuong (KHONG phai 07:00->07:00)
+          Ca ngay  = 07:00 - 19:00
+          Ca dem   = 2 manh con lai: 00:00-07:00 VA 19:00-24:00
+          Ly do: moi ngay phu dung 24h cua chinh no, cac ngay ghep lien khong ho khong trung
+                 -> tra cuu "ket qua ngay X" khong bo sot row nao dong dau ngay X
+          CAI PHAI CHAP NHAN: bucket "ca dem ngay 15" TRON 2 ca dem khac nhau
+                 (duoi dem 14->15 + dau dem 15->16) ⇒ ty le fail ca dem cua 1 ngay
+                 KHONG phai so cua mot ca lien mach nao. Danh gia hieu suat 1 ca/1 to
+                 thi dung preset "Ca hien tai", cho nay giu nguyen ca 12h lien mach.
+        Panel trend hien 3 cot: 00:00 / 07:00 / 19:00 (dung 3 doan cua ngay)
+    #5  Partial index cho StationId + ErrorCode
+        migration 20260730033409_PartialTestResultIndexes - DA AP DB dev
+        DB dev: StationId NOT NULL = 0/129 row, ErrorCode NOT NULL = 21/129
+        -> da EXPLAIN xac nhan planner VAN dung duoc index cho "= ?"
+    #6  Jitter startup cho scan loop agent (Random trong 1 interval)
+  CHOT KHONG LAM: #3 retention sweep, #4 rollup
+        -> quyet dinh cua chu du an: giu luu tru nhu binh thuong, dung luong khong dang lo
+  CON LAI:
+    tim theo serial van la query khong bi chan cua so - xem muc 2.4
+
+  CHUA restart BE  ·  CHUA verify browser  ·  CHUA thay binary agent tram  ·  CHUA commit
+  LUU Y KHI DEPLOY NHA MAY: migration nay phai chay tren DB that
+  (backend KHONG auto-migrate)
+
+
+TOM TAT NHANH (doc 30 giay)
+--------------------------------------------------------------------------------
+  1. Dung luong DB:      KHONG phai van de. 2000 PC x 150 log/ngay = 5,4 GB/30 ngay.
+  2. Duong GHI (ingest): gan nhu khong dang lo. Diem nong duy nhat la ngay rollout.
+  3. Duong DOC (query):  SE VO. Day moi la van de that, va vo vi KIEU QUERY chu
+                         khong vi so luong du lieu luu.
+  4. Retention 3 ngay:   dat SAI CHO. Con so 3 ngay nen ap vao CUA SO TRUY VAN raw
+                         (vi ly do CPU/RAM), khong phai ap vao RETENTION
+                         (vi dung luong re + du lieu con gia tri).
+     De xuat: cap query 3-7 ngay (bat buoc) + retention 30 ngay + rollup theo ca
+              giu 1-2 nam (~200 MB/nam).
+
+
+================================================================================
+ PHAN 1 - DUNG LUONG DB VA ANH HUONG HIEU NANG
+================================================================================
+
+1.1 KICH THUOC THAT MOT ROW (do that, khong doan)
+--------------------------------------------------------------------------------
+Do tren TESSDB:
+
+    129 rows  |  avg heap tuple = 241 B  |  avg FileName = 77 ky tu
+
+Bang co 7 index (DBContext.cs:224-229 + PK). Tong index NANG HON CA HEAP:
+
+    Thanh phan                                                        B/row
+    ---------------------------------------------------------------  ------
+    Heap tuple                                                        ~245
+    Unique (ComputerId, FileName) - chua ca ten file 77 ky tu          ~120
+    (ComputerId,TestedAt) + (StationId,TestedAt)                        ~80
+    (ErrorCode,TestedAt) + SerialMac + PK                              ~120
+    ---------------------------------------------------------------  ------
+    TONG THUC TE (ke ca fillfactor)                              ~0,6 KB/row
+
+
+1.2 QUY MO 1-2000 PC
+--------------------------------------------------------------------------------
+    Kich ban                  rows/ngay    /ngay      30 ngay     1 nam
+    -----------------------  ----------  ---------  ----------  ---------
+    1000 PC x 50 log              50k      30 MB      0,9 GB      11 GB
+    2000 PC x 150 log            300k     180 MB      5,4 GB      66 GB
+    2000 PC x 400 log            800k     480 MB       14 GB     175 GB
+
+KET LUAN VE DUNG LUONG: KHONG PHAI VAN DE.
+Ngay ca kich ban nang nhat giu ca nam la 175 GB - voi server nha may day la
+chuyen nho. Day KHONG phai ly do de cat xuong 3 ngay.
+
+
+1.3 DUONG GHI (INGEST): GAN NHU KHONG DANG LO
+--------------------------------------------------------------------------------
+300k rows/ngay = ~3,5 insert/giay trung binh. Hai diem can biet:
+
+  - Dedup query fileNames.Contains(...) (AgentService.cs:961-964) o trang thai
+    on dinh chi co 1-3 ten file moi cycle -> re. MaxRecordsPerBatch=1000 chan
+    duoc truong hop bat thuong.
+
+  - NGAY ROLLOUT LA DIEM NONG DUY NHAT: TailDays=2 nen moi tram gui ~2 ngay log
+    lan dau. Neu bat TestLogs:Enabled dong loat cho 2000 tram
+    -> ~600k insert don trong ~5 phut (~2000 insert/s x 7 index).
+    RunTestResultsLoopAsync (AgentWorker.cs:146-156) KHONG CO JITTER, khac voi
+    inventory loop (co ComputeInventoryStartupDelay).
+    => Bat theo dot, hoac them startup delay ngau nhien.
+
+
+1.4 DUONG DOC: DAY MOI LA VAN DE THAT
+--------------------------------------------------------------------------------
+Comment trong chinh file query service tu khai ngan sach thiet ke
+(TestResultQueryService.cs:20-21):
+
+    "at roughly 20k rows a day a grouped scan over an indexed window is well
+     inside budget"
+
+O 2000 PC, con so thuc la 300k-800k rows/ngay -- LECH 15-40 LAN.
+Code khong sai; GIA DINH DA HET HAN.
+
+Ly do: 4/5 endpoint MATERIALIZE TOAN BO WINDOW VAO RAM roi group bang LINQ
+trong C#, khong group duoi SQL:
+
+    GetSummaryAsync           - .ToListAsync()  (dong 55-57)
+    GetByStationAsync         -                 (dong 100-102)
+    GetByComputerAsync        -                 (dong 127-129)
+    GetErrorParetoAsync       -                 (dong 195-198)
+    GetConsecutiveFailsAsync  -                 (dong 284-288)
+        ^ NANG NHAT, va CO TINH bo qua date filter cua user:
+          luon quet 24h toan fleet
+
+Uoc tinh allocation o kich ban 300k rows/ngay:
+
+    Hanh dong                                              Rows tai ve   RAM/lan
+    ----------------------------------------------------  -----------  ---------
+    Mo /test-monitor, preset "ca hien tai"
+      (5 endpoint song song, TestMonitor.tsx:112-118)          ~750k    150-200 MB
+    Mo /computer
+      (use-computers-page.ts:55 goi getByComputer({}))         ~450k      ~105 MB
+    Preset 7 NGAY                                       2,1M/endpoint     ~0,5 GB
+    Date picker 30 NGAY                                   9M/endpoint  timeout/OOM
+
+BA HE QUA CU THE:
+
+  (1) Trang /computer CUNG GANH QUERY NANG - khong chi /test-monitor.
+      Moi nguoi xem fleet deu trigger 24h-fleet-wide scan.
+
+  (2) MaxWindows=800 KHONG BAO VE DUOC GI o day. No chan so cua so ca, khong
+      chan so row. Date range picker hien tai la mot lo tai nguyen khong gioi
+      han khi len 2000 PC.
+
+  (3) Vai nguoi cung refresh -> GC thrash, request 10-30s, co kha nang OOM
+      process BE.
+
+TOM GON PHAN 1: dung luong OK, ghi OK, DOC SE VO - va vo vi kieu query,
+khong vi so luong du lieu luu.
+
+
+================================================================================
+ PHAN 2 - CO NEN CHI GIU 3 NGAY?
+================================================================================
+
+2.1 KIEM CHUNG TIEN DE
+--------------------------------------------------------------------------------
+"Chi co metadata tu ten file nen truy van xa khong nhieu gia tri"
+-> DUNG MOT NUA.
+
+DUNG: khong co so do -> khong lam duoc Cpk, khong phan tich root cause sau
+      (do la plan 2 dang HOAN: docs/plan/thu_thap_log_test_files_plan.md).
+
+NHUNG metadata tu ten file van giu gia tri dai han o 5 cho:
+
+    Dung de lam gi                                  Can bao lau   3 ngay du?
+    ---------------------------------------------  ------------  -----------
+    Yield/FPY chot theo MO                          tron MO       KHONG
+                                                    (>3 ngay)     khong chot noi 1 MO
+    So sanh trend (fail 12% hom nay la bat thuong   2-4 tuan      KHONG
+    hay binh thuong?)                               baseline      nguong 10% thanh
+                                                                  so cung vo can cu
+    Pareto error code theo thang cho hop chat        1-3 thang     KHONG
+    luong / CI
+    TRUY VET SERIAL - SearchAsync *co tinh* bo       cang lau      KHONG
+    date range (dong 224-227) de "tim unit nay o     cang tot      xoa bo tinh nang
+    bat ky dau"                                                    da thiet ke
+    Doi chung khi khach/QA khieu nai 1 lo            vai tuan      KHONG
+
+Voi chi phi chi 5,4 GB cho 30 ngay, cat xuong 3 ngay la ban re 5 nhom gia tri
+tren de tiet kiem ~5 GB dia. KHONG DANG.
+
+
+2.2 NHUNG "3 NGAY" VAN DUNG - CHI LA DAT SAI CHO
+--------------------------------------------------------------------------------
+Con so 3 ngay nen ap vao CUA SO TRUY VAN raw, khong phai RETENTION:
+
+                              Nen dat                  Ly do
+    ------------------------  -----------------------  ---------------------------
+    Cua so query raw toi da   3-7 NGAY (hard cap,      Vi CPU/RAM. Day chinh la
+                              tra 400)                 cai dang thieu va se lam
+                                                       vo BE
+    Retention raw             30 NGAY                  Vi dung luong re, gia tri
+                              (14 neu muon tiet kiem)  du lieu con
+    Rollup theo ca            GIU 1-2 NAM              2000 PC x 2 ca = 4000
+                                                       row/ngay = ~200 MB/nam
+                                                       = 0,3% raw, ma giu duoc
+                                                       trend/FPY/Pareto dai han
+
+DIEU CHINH COT LOI DE XUAT:
+    cap query xuong 3 ngay (BAT BUOC)
+  + giu retention 30 ngay (re)
+  + rollup cho lich su dai (gan nhu mien phi)
+
+
+2.3 BAY KHI LAM RETENTION (neu trien khai)
+--------------------------------------------------------------------------------
+  - DA CO SAN SCAFFOLD: IntervalSweepService<TOptions>
+    (Services/Common/IntervalSweepService.cs), mau dung la TusTempCleanupService.
+    Khong can tu viet BackgroundService (unhandled exception trong
+    BackgroundService la chet ca host).
+
+  - HARD DELETE AN TOAN: TestResultRecord : BaseEntity -> KHONG co IsDeleted,
+    khong co global query filter -> khong lap lai bay BlobGc.
+    Dung ExecuteDeleteAsync theo batch 5000 ORDER BY TestedAt (di qua
+    IX_TestedAt), dung load entity.
+
+  - RETENTION KHONG DUOC NHO HON TailDays. Agent chi gui tien (watermark
+    testlogs.last), nen xoa row cu se khong bi ghi lai - TRU KHI mat file
+    watermark (reimage PC) thi no rescan TailDays=2 ngay.
+    Retention 3 ngay vs TailDays 2 chi cach 1 ngay: an toan nhung SAT;
+    ai tang TailDays len 7 la row "song lai".
+
+  - AUTOVACUUM: bang 300k insert + 300k delete/ngay voi scale_factor mac dinh
+    0,2 se vacuum qua thua -> bloat.
+    Set rieng cho bang nay: autovacuum_vacuum_scale_factor = 0.02
+
+  - PARTITION theo TestedAt (DROP partition = tuc thi, khong bloat) nghe hap dan
+    nhung co BAY NANG: Postgres bat unique index phai chua partition key
+    -> (ComputerId, FileName) thanh (ComputerId, FileName, TestedAt),
+    tuc MAT DUNG CO CHE IDEMPOTENCY ma comment entity goi la
+    "the whole idempotency story".
+    Chi nen partition khi vuot ~1M row/ngay; o 300k thi DELETE batch la du.
+
+  - FE PHAI KHOP: neu retention la N ngay ma preset 7 ngay + date picker van cho
+    chon 30 ngay, user se doc "thang truoc 0 fail" la tin tot - thuc ra la du
+    lieu da bi xoa. Phai clamp picker theo retention va ghi ro
+    "chi tiet chi giu N ngay".
+
+
+2.4 QUERY DUY NHAT CON KHONG BI CHAN CUA SO: TIM THEO SERIAL
+--------------------------------------------------------------------------------
+SearchAsync CO TINH bo qua khoang ngay khi co tham so serial
+(TestResultQueryService.cs:224-227) va dung ToLower().Contains(...) = LIKE '%x%'
+-> khong index nao dung duoc -> quet toan bang.
+
+DA GIU NGUYEN HANH VI (khong sua trong lan nay): cat no xuong 1 ngay la xoa bo
+tinh nang truy vet unit, ma nguoi dung khong yeu cau dieu do.
+
+Danh gia muc do: day la thao tac THU CONG, mot nguoi bam mot lan - khong nam
+tren duong moi lan mo trang nhu 5 panel kia. O 60M row se mat vai giay den vai
+chuc giay. Chap nhan duoc tam thoi, KHONG chap nhan duoc lau dai.
+
+Huong sua khi can (theo thu tu re -> dat):
+  a) Doi sang so khop CHINH XAC hoac PREFIX tren serial da normalize
+     -> dung duoc IX_SerialMac, O(log n). Re nhat, nhung mat kha nang tim
+        theo doan giua.
+  b) Chan bang so ngay lookback co cau hinh (vd 90 ngay) - giam, khong giai quyet.
+  c) Index GIN pg_trgm tren SerialMac -> %x% nhanh that, nhung them extension
+     va index rat lon tren 60M row.
+
+
+2.5 THANG NHANH VE INDEX (re, lam ngay duoc)
+--------------------------------------------------------------------------------
+  - IX_TestResultRecords_StationId_TestedAt hien VO DUNG: ingest luon set
+    StationId = null (AgentService.cs:980-982), bao cao group theo TEN.
+    Index tren cot toan NULL = tra phi ghi cho 0 loi ich
+    -> drop, hoac WHERE "StationId" IS NOT NULL.
+
+  - IX_ErrorCode_TestedAt nen la partial WHERE "ErrorCode" IS NOT NULL
+    - ~85% row la PASS voi code NULL.
+
+  Hai thay doi nay giam ~15% write amplification va ~60-70 B/row.
+
+
+================================================================================
+ THU TU UU TIEN DE XUAT
+================================================================================
+
+  #  Viec                                                Vi sao xep o day
+  -  --------------------------------------------------  ------------------------
+  1  DAY AGGREGATION XUONG SQL - GroupBy trong           Re nhat, hieu qua nhat,
+     IQueryable thay vi ToListAsync() + LINQ.            KHONG doi schema, KHONG
+     Postgres tra vai chuc row thay vi hang tram nghin   mat du lieu.
+                                                         BAT BUOC truoc khi bat
+                                                         2000 tram
+  2  Hard cap cua so query raw (3-7 ngay -> 400);        Chan lo tai nguyen cua
+     GetConsecutiveFailsAsync phai nhan narrowing        date picker
+     bat buoc
+  3  Retention sweep 30 NGAY (khong phai 3) qua          Chan tang truong vo han,
+     IntervalSweepService                                chi phi thap
+  4  Bang rollup theo ca x computer x station x model    Mo lai trend/FPY/Pareto
+     (+ bang error code)                                 dai han sau khi cap query
+  5  Index cleanup (partial StationId/ErrorCode)         15 phut, giam phi ghi
+  6  Rollout TestLogs:Enabled theo dot + jitter          Tranh 600k insert don
+     startup cho scan loop                               5 phut
+
+DIEM KHO DUY NHAT O #1:
+  summary.ByDay group theo moc bat dau ca (TestResultQueryService.cs:77-92)
+  la logic C#, EF khong dich duoc.
+  Cach lam nhat quan voi code hien co: dung CASE bang expression tree map
+  TestedAt -> chi so cua so, dung ky thuat da dung o InShiftWindows
+  (dong 357-376); 7 ngay = 14 nhanh, 30 ngay = 60 nhanh, van on.
+  4 endpoint con lai thi GroupBy dich thang, ke ca COUNT(DISTINCT ComputerId).
+
+
+================================================================================
+ FILE / DONG DA THAM CHIEU
+================================================================================
+  MProjectBackend/MProject.Domain/Entities/Assets/TestResultRecord.cs
+  MProjectBackend/MProject.Infrastructure/Migrations/20260728042626_AddTestResultRecord.cs
+  MProjectBackend/MProject.Infrastructure/DBContext.cs:209-230
+  MProjectBackend/MProject.Application/Services/Assets/TestResultQueryService.cs
+      :20-21   (gia dinh 20k rows/ngay)
+      :55-57   (GetSummaryAsync materialize)
+      :77-92   (ByDay group theo ca - logic C#)
+      :100-102 (GetByStationAsync materialize)
+      :127-129 (GetByComputerAsync materialize)
+      :195-198 (GetErrorParetoAsync materialize)
+      :224-227 (SearchAsync co tinh bo date range de truy vet serial)
+      :284-288 (GetConsecutiveFailsAsync - 24h fleet-wide, bo qua date filter)
+      :357-376 (InShiftWindows - ky thuat expression tree tai su dung duoc)
+  MProjectBackend/MProject.Application/Services/Assets/AgentService.cs
+      :930-1009 (ingest, MaxTestResultFilesPerBatch=5000, StationId=null)
+  MProjectBackend/MProject.Application/Services/Common/IntervalSweepService.cs
+  MProjectBackend/MProject.Domain/Options/TestMonitorOptions.cs
+      (StreakLookbackHours=24, MinSamples=30, FailRateWarnPercent=10)
+  MProjectAgent/Services/AgentWorker.cs:146-156 (khong co jitter)
+  MProjectAgent/Services/TestResultScanner.cs   (watermark testlogs.last)
+  MProjectAgent/appsettings.json:36-47
+      (TestLogs: Enabled=false, ScanIntervalSeconds=300, TailDays=2,
+       OverlapMinutes=15, MaxRecordsPerBatch=1000)
+  MProjectFrontend/src/pages/TestMonitor/TestMonitor.tsx:36-66, 112-118
+  MProjectFrontend/src/pages/Computer/hooks/use-computers-page.ts:55
+
+================================================================================
+ GHI CHU: Chua thay doi code nao. Day la tai lieu phan tich (report-only).
+================================================================================
