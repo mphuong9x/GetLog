@@ -10,6 +10,10 @@ public class LogParser
     private static readonly Regex MagnitudeRegex = new(@"MAGNITUDE:\s*([-\d.]+)\s*\(\s*([-\d.]+)\s*<\s*x\s*<\s*([-\d.]+)\s*\)", RegexOptions.Compiled);
     private static readonly Regex MacRegex = new(@"MAC address\s*:\s*([A-F0-9]{12})", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex GroupNameRegex = new(@"Run \[.*?\]\s*(.*?)\s*test\.\.\.", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    // Limits printed after the value: "(-79 <= x <= -65)" or "(-68 ~ -52)".
+    private static readonly Regex TwoSidedLimitRegex = new(@"\(\s*(-?[\d.]+)\s*(?:<=\s*x\s*<=|~)\s*(-?[\d.]+)\s*\)", RegexOptions.Compiled);
+    // One-sided limits: "(10 <= x)" or "(x <= 30)".
+    private static readonly Regex OneSidedLimitRegex = new(@"\(\s*(?:(-?[\d.]+)\s*<=\s*x|x\s*<=\s*(-?[\d.]+))\s*\)", RegexOptions.Compiled);
 
     public LogResult Parse(string filePath, List<(string Key, string AltKey, string ColumnName)> keys)
     {
@@ -67,6 +71,12 @@ public class LogParser
                     if (result.Values[entry.ColumnName] == null)
                     {
                         result.Values[entry.ColumnName] = value;
+
+                        var limits = ExtractLimits(partAfterKey);
+                        if (limits.Lower != null || limits.Upper != null)
+                        {
+                            result.Limits[entry.ColumnName] = limits;
+                        }
                     }
                     
                     occurrences[searchKey] = count + 1;
@@ -155,6 +165,37 @@ public class LogParser
 
         return result;
     }
+
+    // "-59.00 dBm (-68 ~ -52)" -> Lower = "-68", Upper = "-52". Some logs print the pair
+    // as (upper ~ lower), so the two values are ordered by size.
+    private static (string? Lower, string? Upper) ExtractLimits(string text)
+    {
+        var twoSided = TwoSidedLimitRegex.Match(text);
+        if (twoSided.Success)
+        {
+            string first = twoSided.Groups[1].Value, second = twoSided.Groups[2].Value;
+            var a = ParseNumber(first);
+            var b = ParseNumber(second);
+
+            if (a.HasValue && b.HasValue)
+                return a <= b ? (first, second) : (second, first);
+        }
+
+        var oneSided = OneSidedLimitRegex.Match(text);
+        if (oneSided.Success)
+        {
+            return oneSided.Groups[1].Success
+                ? (oneSided.Groups[1].Value, null)
+                : (null, oneSided.Groups[2].Value);
+        }
+
+        return (null, null);
+    }
+
+    private static double? ParseNumber(string text) =>
+        double.TryParse(text, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var value)
+            ? value
+            : null;
 
     private string? ExtractValue(string text)
     {

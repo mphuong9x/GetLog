@@ -17,6 +17,11 @@ public class LogProcessingService
 
         foreach (var file in files)
         {
+            // Retest logs of a failed unit stop at the failing item, so they carry only a
+            // fraction of the measurements — keep the passing run of each unit.
+            if (Path.GetFileName(file).StartsWith("FAIL_", StringComparison.OrdinalIgnoreCase))
+                continue;
+
             var mac = FileNameParser.Parse(Path.GetFileName(file));
 
             LogResult logResult;

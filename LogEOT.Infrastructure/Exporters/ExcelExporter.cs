@@ -5,6 +5,12 @@ namespace LogEOT.Infrastructure.Exporters;
 
 public class ExcelExporter
 {
+    // Same palette as the UMRUTI00T01Tool sheets.
+    private const string HeaderFill = "#DDEBF7";
+    private const string LimitFill = "#FFF2CC";
+    private const string BadFill = "#FFC7CE";
+    private const string MissingFill = "#F2F2F2";
+
     public void Export(string filePath, List<LogResult> results, List<(string Key, string AltKey, string ColumnName)> keys)
     {
         using var workbook = new XLWorkbook();
@@ -111,46 +117,111 @@ public class ExcelExporter
     }
 
     // Write as a number so Cpk formulas (AVERAGE/STDEV) work; keep raw text if it is not numeric.
-    private static void SetNumeric(IXLCell cell, string raw)
+    // Returns the number written, or null when the value was not numeric.
+    private static double? SetNumeric(IXLCell cell, string raw)
     {
         if (double.TryParse(raw, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var d))
+        {
             cell.Value = d;
-        else
-            cell.Value = raw;
+            cell.Style.NumberFormat.Format = FormatOf(raw);
+            return d;
+        }
+
+        cell.Value = raw;
+        return null;
     }
 
+    // Show as many decimals as the log printed ("-65.0" stays "-65.0", "21" stays "21")
+    // instead of rounding every cell to one fixed format.
+    private static string FormatOf(string raw)
+    {
+        int dot = raw.IndexOf('.');
+        if (dot < 0) return "0";
+
+        int decimals = raw.Length - dot - 1;
+
+        // Excel keeps 15 significant digits; asking for more only prints trailing zeros.
+        int wholeDigits = raw.Substring(0, dot).TrimStart('-', '+', '0').Length;
+        decimals = Math.Min(decimals, Math.Max(0, 15 - wholeDigits));
+
+        return decimals <= 0 ? "0" : "0." + new string('0', decimals);
+    }
+
+    // Layout of the UMRUTI00T01Tool sheets: limit rows on top, one header row,
+    // then one row per unit — values numeric, out-of-limit values in red.
+    //   1 USL | 2 LSL | 3 header (MAC \ Item) | 4.. data
     private void WriteSheet(IXLWorksheet sheet,
         List<LogResult> data,
         List<(string Key, string AltKey, string ColumnName)> keys)
     {
-        int col = 1;
+        const int uslRow = 1, lslRow = 2, headerRow = 3, firstDataRow = 4;
 
-        sheet.Cell(1, col++).Value = "MAC";
+        sheet.Cell(uslRow, 1).Value = "UPPER_SL";
+        sheet.Cell(lslRow, 1).Value = "LOWER_SL";
+        sheet.Cell(headerRow, 1).Value = "MAC \\ Item";
 
-        foreach (var key in keys)
+        var limits = new (double? Lower, double? Upper)[keys.Count];
+
+        for (int i = 0; i < keys.Count; i++)
         {
-            sheet.Cell(1, col++).Value = key.ColumnName;
+            int col = 2 + i;
+            string columnName = keys[i].ColumnName;
+
+            var raw = data
+                .Select(d => d.Limits.TryGetValue(columnName, out var l) ? l : default)
+                .FirstOrDefault(l => l.Lower != null || l.Upper != null);
+
+            limits[i] = (
+                raw.Lower == null ? null : SetNumeric(sheet.Cell(lslRow, col), raw.Lower),
+                raw.Upper == null ? null : SetNumeric(sheet.Cell(uslRow, col), raw.Upper));
+
+            sheet.Cell(headerRow, col).Value = columnName;
         }
 
-        int row = 2;
-
-        foreach (var item in data)
+        for (int r = 0; r < data.Count; r++)
         {
-            col = 1;
+            int row = firstDataRow + r;
 
-            sheet.Cell(row, col++).Value = item.MAC;
+            sheet.Cell(row, 1).Value = data[r].MAC;
+            sheet.Cell(row, 1).Style.Font.FontName = "Consolas";
 
-            foreach (var key in keys)
+            for (int i = 0; i < keys.Count; i++)
             {
-                if (item.Values.TryGetValue(key.ColumnName, out var value))
-                    sheet.Cell(row, col++).Value = value;
-                else
-                    sheet.Cell(row, col++).Value = "";
-            }
+                var cell = sheet.Cell(row, 2 + i);
+                data[r].Values.TryGetValue(keys[i].ColumnName, out var raw);
 
-            row++;
+                if (string.IsNullOrWhiteSpace(raw))
+                {
+                    cell.Style.Fill.BackgroundColor = XLColor.FromHtml(MissingFill);
+                    continue;
+                }
+
+                var value = SetNumeric(cell, raw);
+                if (value == null) continue;
+
+                var (lower, upper) = limits[i];
+                if ((lower.HasValue && value < lower) || (upper.HasValue && value > upper))
+                    cell.Style.Fill.BackgroundColor = XLColor.FromHtml(BadFill);
+            }
         }
 
-        sheet.Columns().AdjustToContents();
+        int lastCol = 1 + keys.Count;
+        int lastRow = firstDataRow + data.Count - 1;
+
+        var limitRows = sheet.Range(uslRow, 1, lslRow, lastCol);
+        limitRows.Style.Fill.BackgroundColor = XLColor.FromHtml(LimitFill);
+        sheet.Range(uslRow, 1, lslRow, 1).Style.Font.Bold = true;
+
+        var header = sheet.Range(headerRow, 1, headerRow, lastCol);
+        header.Style.Fill.BackgroundColor = XLColor.FromHtml(HeaderFill);
+        header.Style.Font.Bold = true;
+        header.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        header.Style.Alignment.WrapText = true;
+
+        sheet.SheetView.Freeze(headerRow, 1);
+        sheet.Range(headerRow, 1, lastRow, 1).SetAutoFilter();
+
+        sheet.Column(1).Width = 22;
+        for (int i = 0; i < keys.Count; i++) sheet.Column(2 + i).Width = 13;
     }
 }
