@@ -32,6 +32,10 @@
                     <Run Text="•"/><Run Text=" Ấn nút "/><Run Text="&quot;Get MAC&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" để lấy danh sách MAC từ tên file log."/>
                     <LineBreak/>
                     <Run Text="•"/><Run Text=" Ấn nút "/><Run Text="&quot;Audio Logs&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" để xuất data Cpk theo function test ra Excel."/>
+                    <LineBreak/>
+                    <Run Text="•"/><Run Text=" Ấn nút "/><Run Text="&quot;Remove Duplicate&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" để lọc log PASS trùng MAC, chỉ giữ lần test mới nhất."/>
+                    <LineBreak/>
+                    <Run Text="•"/><Run Text=" Ấn nút "/><Run Text="&quot;Compare MAC&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" để so 2 folder log, tìm MAC có ở folder này mà thiếu ở folder kia."/>
                 </TextBlock>
             </StackPanel>
 
@@ -50,6 +54,10 @@
                     <Run Text="•"/><Run Text=" 点击 "/><Run Text="&quot;Get MAC&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" 按钮从日志文件名提取 MAC 列表。"/>
                     <LineBreak/>
                     <Run Text="•"/><Run Text=" 点击 "/><Run Text="&quot;Audio Logs&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" 按钮按测试项导出 Cpk 数据到 Excel。"/>
+                    <LineBreak/>
+                    <Run Text="•"/><Run Text=" 点击 "/><Run Text="&quot;Remove Duplicate&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" 按钮清理 MAC 重复的 PASS 日志，只保留最新一次测试。"/>
+                    <LineBreak/>
+                    <Run Text="•"/><Run Text=" 点击 "/><Run Text="&quot;Compare MAC&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" 按钮比较两个日志文件夹，找出此文件夹有而另一个没有的 MAC。"/>
                 </TextBlock>
             </StackPanel>
 
@@ -68,6 +76,10 @@
                     <Run Text="•"/><Run Text=" Click the "/><Run Text="&quot;Get MAC&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" button to extract a MAC list from log filenames."/>
                     <LineBreak/>
                     <Run Text="•"/><Run Text=" Click the "/><Run Text="&quot;Audio Logs&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" button to export Cpk data by function test to Excel."/>
+                    <LineBreak/>
+                    <Run Text="•"/><Run Text=" Click the "/><Run Text="&quot;Remove Duplicate&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" button to drop PASS logs that repeat a MAC, keeping the newest test."/>
+                    <LineBreak/>
+                    <Run Text="•"/><Run Text=" Click the "/><Run Text="&quot;Compare MAC&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" button to compare two log folders and list the MACs missing from either side."/>
                 </TextBlock>
             </StackPanel>
         </Grid>

@@ -17,6 +17,8 @@ public partial class MainWindow : Window
     private Views.DownloadLogsView? _downloadView;
     private Views.GetMacView? _getMacView;
     private Views.AudioLogView? _audioLogView;
+    private Views.RemoveDuplicateView? _removeDuplicateView;
+    private Views.CompareMacView? _compareMacView;
     private DispatcherTimer? _statusTimer;
 
     public MainWindow()
@@ -148,6 +150,24 @@ public partial class MainWindow : Window
         {
             _audioLogView ??= new Views.AudioLogView(LogMessage, ShowStatus);
             MainContent.Content = _audioLogView;
+        }
+    }
+
+    private void RemoveDuplicate_Click(object sender, RoutedEventArgs e)
+    {
+        if (MainContent.Content is not Views.RemoveDuplicateView)
+        {
+            _removeDuplicateView ??= new Views.RemoveDuplicateView(LogMessage, ShowStatus);
+            MainContent.Content = _removeDuplicateView;
+        }
+    }
+
+    private void CompareMac_Click(object sender, RoutedEventArgs e)
+    {
+        if (MainContent.Content is not Views.CompareMacView)
+        {
+            _compareMacView ??= new Views.CompareMacView(LogMessage, ShowStatus);
+            MainContent.Content = _compareMacView;
         }
     }
 
