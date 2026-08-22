@@ -182,19 +182,15 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="0"
+        <Button Grid.Row="0"
+                Content="UI - TE - EOT"
+                Height="54"
+                Style="{StaticResource OutlineButton}"
                 Background="White"
-                Padding="15"
-                BorderBrush="#E2E8F0"
-                BorderThickness="1"
-                CornerRadius="8">
-            <TextBlock Text="UI - TE - EOT - CFT"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center"
-                       FontSize="20"
-                       FontWeight="Bold"
-                       Foreground="#0067C0"/>
-        </Border>
+                FontSize="20"
+                FontWeight="Bold"
+                Click="Home_Click"
+                ToolTip="Back to Home"/>
 
         <Grid Grid.Row="1" Margin="0,15,0,0">
             <Grid.ColumnDefinitions>

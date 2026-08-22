@@ -56,11 +56,13 @@ public class SftpDownloadService
 
                         foreach (var root in _config.Roots)
                         {
-                            string modelPath = $"{root}/{options.Model}";
-                            if (!DirExists(session, modelPath))
+                            string scanPath = string.IsNullOrWhiteSpace(options.Model)
+                                ? root
+                                : $"{root}/{options.Model}";
+                            if (!DirExists(session, scanPath))
                                 continue;
 
-                            Walk(session, modelPath, options, allFiles, logMessage);
+                            Walk(session, scanPath, options, allFiles, logMessage);
                         }
                     }
                 }
@@ -129,8 +131,11 @@ public class SftpDownloadService
                                 }
                                 else
                                 {
+                                    string model = string.IsNullOrWhiteSpace(options.Model)
+                                        ? ExtractModel(remote)
+                                        : options.Model;
                                     string station = ExtractStation(remote);
-                                    localDir = Path.Combine(localRoot, options.Model, station);
+                                    localDir = Path.Combine(localRoot, model, station);
                                 }
 
                                 Directory.CreateDirectory(localDir);
@@ -278,5 +283,15 @@ public class SftpDownloadService
             return parts[2];
 
         return "UNKNOWN";
+    }
+
+    static string ExtractModel(string remote)
+    {
+        var parts = remote.Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length >= 2)
+            return parts[1];
+
+        return "UNKNOWN_MODEL";
     }
 }

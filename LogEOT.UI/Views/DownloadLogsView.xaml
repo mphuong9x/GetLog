@@ -64,7 +64,7 @@
                         <ColumnDefinition Width="*"/>  
                     </Grid.ColumnDefinitions>
 
-                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Model (*):" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#334155"/>
+                    <TextBlock x:Name="ModelLabel" Grid.Row="0" Grid.Column="0" Text="Model (*):" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#334155"/>
                     <TextBox x:Name="ModelTextBox" Grid.Row="0" Grid.Column="1" MinHeight="36" Tag="Enter Model..." VerticalContentAlignment="Center"/>
 
                     <TextBlock Grid.Row="0" Grid.Column="3" Text="MO:" VerticalAlignment="Center" HorizontalAlignment="Left" FontWeight="SemiBold" Foreground="#334155" Margin="0,0,10,0"/>
@@ -105,7 +105,29 @@
                     </Grid>
                 </StackPanel>
                 
-                <Button Content="Start Download" Width="180" Height="40" Background="#0067C0" Foreground="White" BorderThickness="0" Cursor="Hand" Click="Download_Click" HorizontalAlignment="Center" Margin="0,10,0,20"/>
+                <Button x:Name="DownloadButton" Content="Start Download" Width="180" Height="40" Background="#0067C0" Foreground="White" BorderThickness="0" Cursor="Hand" Click="Download_Click" HorizontalAlignment="Center" Margin="0,10,0,12"/>
+
+                <Border x:Name="BusyStatusBorder"
+                        Visibility="Collapsed"
+                        Background="#E8F3FF"
+                        BorderBrush="#60A5FA"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="12,10"
+                        Margin="0,0,0,15">
+                    <StackPanel>
+                        <TextBlock x:Name="BusyStatusText"
+                                   Text="Đang tìm kiếm logs, vui lòng chờ..."
+                                   FontWeight="SemiBold"
+                                   Foreground="#075985"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,0,0,8"/>
+                        <ProgressBar Height="6"
+                                     IsIndeterminate="True"
+                                     Background="#BFDBFE"
+                                     Foreground="#0284C7"/>
+                    </StackPanel>
+                </Border>
 
                 <Grid Margin="0,0,0,15">
                     <Grid.ColumnDefinitions>

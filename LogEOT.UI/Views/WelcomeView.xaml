@@ -1,87 +1,144 @@
 <UserControl x:Class="LogEOT.UI.Views.WelcomeView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-             mc:Ignorable="d" 
-             d:DesignHeight="300" d:DesignWidth="600">
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d"
+             d:DesignHeight="300" d:DesignWidth="600"
+             UseLayoutRounding="True"
+             SnapsToDevicePixels="True">
     <Border Background="White"
-            BorderBrush="#E2E8F0"
-            BorderThickness="1"
+            BorderBrush="Black"
+            BorderThickness="2"
             Padding="20"
-            CornerRadius="8">
-        <Grid VerticalAlignment="Center">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
+            CornerRadius="0">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
 
-            <StackPanel Grid.Column="0" VerticalAlignment="Top">
-                <TextBlock Text="VN" FontSize="24" HorizontalAlignment="Center" Margin="0,0,0,8"/>
-                <TextBlock Text="Chào mừng đến với TESS-01!"
-                           FontSize="15" FontWeight="SemiBold" Foreground="#0F172A"
-                           TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,10"/>
-                <TextBlock TextWrapping="Wrap" FontSize="13" Foreground="#475569" LineHeight="22">
-                    <Run Text="•"/><Run Text=" Ấn nút "/><Run Text="&quot;Download Logs&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" để dùng chức năng tải file log."/>
-                    <LineBreak/>
-                    <Run Text="•"/><Run Text=" Ấn nút "/><Run Text="&quot;Analyze Logs&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" để dùng chức năng xử lý data."/>
-                    <LineBreak/>
-                    <Run Text="•"/><Run Text=" Ấn nút "/><Run Text="&quot;Get MAC&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" để lấy danh sách MAC từ tên file log."/>
-                    <LineBreak/>
-                    <Run Text="•"/><Run Text=" Ấn nút "/><Run Text="&quot;Audio Logs&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" để xuất data Cpk theo function test ra Excel."/>
-                    <LineBreak/>
-                    <Run Text="•"/><Run Text=" Ấn nút "/><Run Text="&quot;Remove Duplicate&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" để lọc log PASS trùng MAC, chỉ giữ lần test mới nhất."/>
-                    <LineBreak/>
-                    <Run Text="•"/><Run Text=" Ấn nút "/><Run Text="&quot;Compare MAC&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" để so 2 folder log, tìm MAC có ở folder này mà thiếu ở folder kia."/>
-                </TextBlock>
-            </StackPanel>
+            <Border Background="White"
+                    BorderBrush="Black"
+                    BorderThickness="2"
+                    ClipToBounds="True">
+                <Viewbox Stretch="Uniform">
+                    <Canvas Width="620" Height="210" Background="White">
+                        <!-- Computer: left side -->
+                        <Rectangle Canvas.Left="28" Canvas.Top="52" Width="166" Height="8" Fill="Black"/>
+                        <Rectangle Canvas.Left="28" Canvas.Top="60" Width="8" Height="94" Fill="Black"/>
+                        <Rectangle Canvas.Left="186" Canvas.Top="60" Width="8" Height="94" Fill="Black"/>
+                        <Rectangle Canvas.Left="28" Canvas.Top="154" Width="166" Height="8" Fill="Black"/>
+                        <Rectangle Canvas.Left="44" Canvas.Top="68" Width="134" Height="70" Fill="White"/>
+                        <Rectangle Canvas.Left="54" Canvas.Top="79" Width="60" Height="6" Fill="Black"/>
+                        <Rectangle Canvas.Left="54" Canvas.Top="92" Width="98" Height="6" Fill="Black"/>
+                        <Rectangle Canvas.Left="54" Canvas.Top="105" Width="77" Height="6" Fill="Black"/>
+                        <Rectangle Canvas.Left="54" Canvas.Top="118" Width="106" Height="6" Fill="Black"/>
+                        <Rectangle Canvas.Left="103" Canvas.Top="162" Width="18" Height="18" Fill="Black"/>
+                        <Rectangle Canvas.Left="76" Canvas.Top="180" Width="72" Height="8" Fill="Black"/>
 
-            <Border Grid.Column="1" Width="1" Background="#E2E8F0" Margin="15,0"/>
+                        <!-- Ethernet port and pixel cable to robot's left hand -->
+                        <Rectangle Canvas.Left="186" Canvas.Top="117" Width="16" Height="18" Fill="Black"/>
+                        <Rectangle Canvas.Left="190" Canvas.Top="121" Width="8" Height="10" Fill="White"/>
+                        <Rectangle Canvas.Left="202" Canvas.Top="123" Width="18" Height="6" Fill="Black"/>
+                        <Rectangle Canvas.Left="214" Canvas.Top="129" Width="6" Height="17" Fill="Black"/>
+                        <Rectangle Canvas.Left="220" Canvas.Top="140" Width="20" Height="6" Fill="Black"/>
+                        <Rectangle Canvas.Left="234" Canvas.Top="128" Width="6" Height="18" Fill="Black"/>
+                        <Rectangle Canvas.Left="240" Canvas.Top="128" Width="14" Height="6" Fill="Black"/>
+                        <Rectangle Canvas.Left="246" Canvas.Top="122" Width="16" Height="18" Fill="Black"/>
+                        <Rectangle Canvas.Left="250" Canvas.Top="126" Width="8" Height="7" Fill="White"/>
 
-            <StackPanel Grid.Column="2" VerticalAlignment="Top">
-                <TextBlock Text="CN" FontSize="24" HorizontalAlignment="Center" Margin="0,0,0,8"/>
-                <TextBlock Text="欢迎使用 TESS-01！"
-                           FontSize="15" FontWeight="SemiBold" Foreground="#0F172A"
-                           TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,10"/>
-                <TextBlock TextWrapping="Wrap" FontSize="13" Foreground="#475569" LineHeight="22">
-                    <Run Text="•"/><Run Text=" 点击 "/><Run Text="&quot;Download Logs&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" 按钮以下载日志文件。"/>
-                    <LineBreak/>
-                    <Run Text="•"/><Run Text=" 点击 "/><Run Text="&quot;Analyze Logs&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" 按钮以处理数据。"/>
-                    <LineBreak/>
-                    <Run Text="•"/><Run Text=" 点击 "/><Run Text="&quot;Get MAC&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" 按钮从日志文件名提取 MAC 列表。"/>
-                    <LineBreak/>
-                    <Run Text="•"/><Run Text=" 点击 "/><Run Text="&quot;Audio Logs&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" 按钮按测试项导出 Cpk 数据到 Excel。"/>
-                    <LineBreak/>
-                    <Run Text="•"/><Run Text=" 点击 "/><Run Text="&quot;Remove Duplicate&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" 按钮清理 MAC 重复的 PASS 日志，只保留最新一次测试。"/>
-                    <LineBreak/>
-                    <Run Text="•"/><Run Text=" 点击 "/><Run Text="&quot;Compare MAC&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" 按钮比较两个日志文件夹，找出此文件夹有而另一个没有的 MAC。"/>
-                </TextBlock>
-            </StackPanel>
+                        <!-- Robot head and antenna -->
+                        <Rectangle Canvas.Left="306" Canvas.Top="17" Width="8" Height="18" Fill="Black"/>
+                        <Rectangle Canvas.Left="298" Canvas.Top="11" Width="24" Height="8" Fill="Black"/>
+                        <Rectangle Canvas.Left="266" Canvas.Top="35" Width="88" Height="8" Fill="Black"/>
+                        <Rectangle Canvas.Left="258" Canvas.Top="43" Width="104" Height="54" Fill="Black"/>
+                        <Rectangle Canvas.Left="266" Canvas.Top="51" Width="88" Height="38" Fill="White"/>
+                        <Rectangle Canvas.Left="281" Canvas.Top="61" Width="13" Height="13" Fill="Black"/>
+                        <Rectangle Canvas.Left="326" Canvas.Top="61" Width="13" Height="13" Fill="Black"/>
+                        <Rectangle Canvas.Left="290" Canvas.Top="79" Width="8" Height="6" Fill="Black"/>
+                        <Rectangle Canvas.Left="298" Canvas.Top="83" Width="24" Height="6" Fill="Black"/>
+                        <Rectangle Canvas.Left="322" Canvas.Top="79" Width="8" Height="6" Fill="Black"/>
 
-            <Border Grid.Column="3" Width="1" Background="#E2E8F0" Margin="15,0"/>
+                        <!-- Robot body -->
+                        <Rectangle Canvas.Left="278" Canvas.Top="97" Width="64" Height="8" Fill="Black"/>
+                        <Rectangle Canvas.Left="270" Canvas.Top="105" Width="80" Height="62" Fill="Black"/>
+                        <Rectangle Canvas.Left="278" Canvas.Top="105" Width="64" Height="54" Fill="White"/>
+                        <Rectangle Canvas.Left="292" Canvas.Top="118" Width="36" Height="28" Fill="Black"/>
+                        <Rectangle Canvas.Left="300" Canvas.Top="124" Width="20" Height="5" Fill="White"/>
+                        <Rectangle Canvas.Left="300" Canvas.Top="135" Width="20" Height="5" Fill="White"/>
 
-            <StackPanel Grid.Column="4" VerticalAlignment="Top">
-                <TextBlock Text="ENG" FontSize="24" HorizontalAlignment="Center" Margin="0,0,0,8"/>
-                <TextBlock Text="Welcome to TESS-01!"
-                           FontSize="15" FontWeight="SemiBold" Foreground="#0F172A"
-                           TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,10"/>
-                <TextBlock TextWrapping="Wrap" FontSize="13" Foreground="#475569" LineHeight="22">
-                    <Run Text="•"/><Run Text=" Click the "/><Run Text="&quot;Download Logs&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" button to download log files."/>
-                    <LineBreak/>
-                    <Run Text="•"/><Run Text=" Click the "/><Run Text="&quot;Analyze Logs&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" button to process data."/>
-                    <LineBreak/>
-                    <Run Text="•"/><Run Text=" Click the "/><Run Text="&quot;Get MAC&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" button to extract a MAC list from log filenames."/>
-                    <LineBreak/>
-                    <Run Text="•"/><Run Text=" Click the "/><Run Text="&quot;Audio Logs&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" button to export Cpk data by function test to Excel."/>
-                    <LineBreak/>
-                    <Run Text="•"/><Run Text=" Click the "/><Run Text="&quot;Remove Duplicate&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" button to drop PASS logs that repeat a MAC, keeping the newest test."/>
-                    <LineBreak/>
-                    <Run Text="•"/><Run Text=" Click the "/><Run Text="&quot;Compare MAC&quot;" FontWeight="SemiBold" Foreground="#0067C0"/><Run Text=" button to compare two log folders and list the MACs missing from either side."/>
-                </TextBlock>
-            </StackPanel>
+                        <!-- Left arm holding network cable -->
+                        <Rectangle Canvas.Left="246" Canvas.Top="109" Width="24" Height="12" Fill="Black"/>
+                        <Rectangle Canvas.Left="238" Canvas.Top="115" Width="16" Height="24" Fill="Black"/>
+                        <Rectangle Canvas.Left="242" Canvas.Top="121" Width="8" Height="12" Fill="White"/>
+
+                        <!-- Right arm toward PLC -->
+                        <Rectangle Canvas.Left="350" Canvas.Top="109" Width="24" Height="12" Fill="Black"/>
+                        <Rectangle Canvas.Left="368" Canvas.Top="103" Width="16" Height="28" Fill="Black"/>
+                        <Rectangle Canvas.Left="372" Canvas.Top="109" Width="8" Height="12" Fill="White"/>
+
+                        <!-- Pixel wrench in right hand -->
+                        <Rectangle Canvas.Left="380" Canvas.Top="102" Width="26" Height="8" Fill="Black"/>
+                        <Rectangle Canvas.Left="400" Canvas.Top="94" Width="8" Height="16" Fill="Black"/>
+                        <Rectangle Canvas.Left="406" Canvas.Top="86" Width="8" Height="14" Fill="Black"/>
+                        <Rectangle Canvas.Left="412" Canvas.Top="78" Width="14" Height="8" Fill="Black"/>
+                        <Rectangle Canvas.Left="420" Canvas.Top="70" Width="8" Height="16" Fill="Black"/>
+                        <Rectangle Canvas.Left="428" Canvas.Top="70" Width="8" Height="8" Fill="Black"/>
+                        <Rectangle Canvas.Left="428" Canvas.Top="86" Width="8" Height="8" Fill="Black"/>
+                        <Rectangle Canvas.Left="420" Canvas.Top="86" Width="8" Height="8" Fill="White"/>
+
+                        <!-- Robot legs -->
+                        <Rectangle Canvas.Left="282" Canvas.Top="167" Width="20" Height="18" Fill="Black"/>
+                        <Rectangle Canvas.Left="318" Canvas.Top="167" Width="20" Height="18" Fill="Black"/>
+                        <Rectangle Canvas.Left="274" Canvas.Top="181" Width="28" Height="8" Fill="Black"/>
+                        <Rectangle Canvas.Left="318" Canvas.Top="181" Width="28" Height="8" Fill="Black"/>
+
+                        <!-- Simple PLC: right side -->
+                        <Rectangle Canvas.Left="454" Canvas.Top="43" Width="138" Height="8" Fill="Black"/>
+                        <Rectangle Canvas.Left="454" Canvas.Top="51" Width="8" Height="124" Fill="Black"/>
+                        <Rectangle Canvas.Left="584" Canvas.Top="51" Width="8" Height="124" Fill="Black"/>
+                        <Rectangle Canvas.Left="454" Canvas.Top="175" Width="138" Height="8" Fill="Black"/>
+                        <Rectangle Canvas.Left="470" Canvas.Top="59" Width="34" Height="108" Fill="Black"/>
+                        <Rectangle Canvas.Left="478" Canvas.Top="67" Width="18" Height="92" Fill="White"/>
+                        <Rectangle Canvas.Left="512" Canvas.Top="59" Width="30" Height="108" Fill="Black"/>
+                        <Rectangle Canvas.Left="520" Canvas.Top="67" Width="14" Height="92" Fill="White"/>
+                        <Rectangle Canvas.Left="550" Canvas.Top="59" Width="26" Height="108" Fill="Black"/>
+                        <Rectangle Canvas.Left="558" Canvas.Top="67" Width="10" Height="92" Fill="White"/>
+                        <Rectangle Canvas.Left="480" Canvas.Top="76" Width="14" Height="8" Fill="Black"/>
+                        <Rectangle Canvas.Left="480" Canvas.Top="93" Width="14" Height="8" Fill="Black"/>
+                        <Rectangle Canvas.Left="480" Canvas.Top="110" Width="14" Height="8" Fill="Black"/>
+                        <Rectangle Canvas.Left="522" Canvas.Top="76" Width="10" Height="10" Fill="Black"/>
+                        <Rectangle Canvas.Left="522" Canvas.Top="96" Width="10" Height="10" Fill="Black"/>
+                        <Rectangle Canvas.Left="560" Canvas.Top="76" Width="6" Height="6" Fill="Black"/>
+                        <Rectangle Canvas.Left="560" Canvas.Top="92" Width="6" Height="6" Fill="Black"/>
+                        <Rectangle Canvas.Left="560" Canvas.Top="108" Width="6" Height="6" Fill="Black"/>
+                        <Rectangle Canvas.Left="470" Canvas.Top="183" Width="14" Height="6" Fill="Black"/>
+                        <Rectangle Canvas.Left="562" Canvas.Top="183" Width="14" Height="6" Fill="Black"/>
+
+                        <!-- Pixel floor -->
+                        <Rectangle Canvas.Left="14" Canvas.Top="195" Width="592" Height="5" Fill="Black"/>
+                        <Rectangle Canvas.Left="28" Canvas.Top="200" Width="32" Height="5" Fill="Black"/>
+                        <Rectangle Canvas.Left="92" Canvas.Top="200" Width="32" Height="5" Fill="Black"/>
+                        <Rectangle Canvas.Left="156" Canvas.Top="200" Width="32" Height="5" Fill="Black"/>
+                        <Rectangle Canvas.Left="220" Canvas.Top="200" Width="32" Height="5" Fill="Black"/>
+                        <Rectangle Canvas.Left="284" Canvas.Top="200" Width="32" Height="5" Fill="Black"/>
+                        <Rectangle Canvas.Left="348" Canvas.Top="200" Width="32" Height="5" Fill="Black"/>
+                        <Rectangle Canvas.Left="412" Canvas.Top="200" Width="32" Height="5" Fill="Black"/>
+                        <Rectangle Canvas.Left="476" Canvas.Top="200" Width="32" Height="5" Fill="Black"/>
+                        <Rectangle Canvas.Left="540" Canvas.Top="200" Width="32" Height="5" Fill="Black"/>
+                    </Canvas>
+                </Viewbox>
+            </Border>
+
+            <TextBlock Grid.Row="1"
+                       Text="Make TE great again!"
+                       HorizontalAlignment="Center"
+                       Margin="0,16,0,2"
+                       FontFamily="Consolas"
+                       FontSize="24"
+                       FontWeight="Bold"
+                       Foreground="Black"/>
         </Grid>
     </Border>
 </UserControl>

@@ -88,12 +88,16 @@ public partial class DownloadLogsView : System.Windows.Controls.UserControl
     {
         if (MacFilePanel != null)
             MacFilePanel.Visibility = Visibility.Visible;
+        if (ModelLabel != null)
+            ModelLabel.Text = "Model:";
     }
 
     private void ListMacCheckBox_Unchecked(object sender, RoutedEventArgs e)
     {
         if (MacFilePanel != null)
             MacFilePanel.Visibility = Visibility.Collapsed;
+        if (ModelLabel != null)
+            ModelLabel.Text = "Model (*):";
     }
 
     private void BrowseMac_Click(object sender, RoutedEventArgs e)
@@ -111,7 +115,7 @@ public partial class DownloadLogsView : System.Windows.Controls.UserControl
 
     private async void Download_Click(object sender, RoutedEventArgs e)
     {
-        var model = ModelTextBox.Text?.Trim();
+        var model = ModelTextBox.Text?.Trim() ?? "";
         var mo = MoTextBox.Text?.Trim();
         var outputDir = OutputDirBox.Text?.Trim();
         var startDate = StartDatePicker.SelectedDate;
@@ -136,7 +140,9 @@ public partial class DownloadLogsView : System.Windows.Controls.UserControl
             return;
         }
 
-        if (string.IsNullOrEmpty(model))
+        bool listMac = ListMacCheckBox.IsChecked ?? false;
+
+        if (string.IsNullOrEmpty(model) && !listMac)
         {
             Log("Model is required for SFTP Download.");
             return;
@@ -154,7 +160,6 @@ public partial class DownloadLogsView : System.Windows.Controls.UserControl
             return;
         }
 
-        bool listMac = ListMacCheckBox.IsChecked ?? false;
         var macFile = MacFileBox.Text?.Trim();
         HashSet<string>? macSet = null;
 
@@ -192,12 +197,25 @@ public partial class DownloadLogsView : System.Windows.Controls.UserControl
 
         var btn = sender as System.Windows.Controls.Button;
         if (btn != null) btn.IsEnabled = false;
+        BusyStatusText.Text = "Đang tìm kiếm logs, vui lòng chờ...";
+        BusyStatusBorder.Visibility = Visibility.Visible;
 
         try
         {
+            if (string.IsNullOrEmpty(model))
+            {
+                const string warning = "Bạn chưa điền tên Model, việc tìm kiếm sẽ tốn nhiều thời gian hơn.";
+                Log(warning);
+                System.Windows.MessageBox.Show(
+                    warning,
+                    "Cảnh báo",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
+
             Log("Starting SFTP log download...");
             Log($"- Output Dir: {outputDir}");
-            Log($"- Model: {model}");
+            Log(string.IsNullOrEmpty(model) ? "- Model: All models" : $"- Model: {model}");
             if (!string.IsNullOrEmpty(mo)) Log($"- MO: {mo}");
             if (startDate.HasValue) Log($"- Start Date: {startDate.Value:yyyy-MM-dd}");
             if (endDate.HasValue) Log($"- End Date: {endDate.Value:yyyy-MM-dd}");
@@ -223,7 +241,14 @@ public partial class DownloadLogsView : System.Windows.Controls.UserControl
             int downloaded = await service.DownloadLogsAsync(selectedServers, outputDir, options,
             msg =>
             {
-                dispatcher.BeginInvoke(() => Log(msg));
+                dispatcher.BeginInvoke(() =>
+                {
+                    Log(msg);
+                    if (msg.StartsWith("Scanning on", StringComparison.OrdinalIgnoreCase))
+                        BusyStatusText.Text = "Đang tìm kiếm logs, vui lòng chờ...";
+                    else if (msg.StartsWith("Downloading from", StringComparison.OrdinalIgnoreCase))
+                        BusyStatusText.Text = "Đang tải logs, vui lòng chờ...";
+                });
             },
             (done, total) =>
             {
@@ -235,6 +260,7 @@ public partial class DownloadLogsView : System.Windows.Controls.UserControl
                 // BeginInvoke: không chặn luồng tải; Math.Max tránh thanh tiến độ giật lùi khi cập nhật out-of-order.
                 dispatcher.BeginInvoke(() =>
                 {
+                    BusyStatusText.Text = "Đang tải logs, vui lòng chờ...";
                     DownloadProgress.Maximum = total > 0 ? total : 1;
                     if (done == 0 || done >= DownloadProgress.Value)
                         DownloadProgress.Value = done;
@@ -264,6 +290,7 @@ public partial class DownloadLogsView : System.Windows.Controls.UserControl
         }
         finally
         {
+            BusyStatusBorder.Visibility = Visibility.Collapsed;
             if (btn != null) btn.IsEnabled = true;
         }
     }

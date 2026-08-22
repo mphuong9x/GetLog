@@ -24,9 +24,15 @@ public partial class AnalyzeLogsView : System.Windows.Controls.UserControl
     }
 
     public event EventHandler? RunRequested;
+    public event EventHandler? ResetRequested;
 
     private void Run_Click(object sender, System.Windows.RoutedEventArgs e)
     {
         RunRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void Reset_Click(object sender, System.Windows.RoutedEventArgs e)
+    {
+        ResetRequested?.Invoke(this, EventArgs.Empty);
     }
 }

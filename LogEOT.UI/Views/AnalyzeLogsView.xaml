@@ -66,19 +66,14 @@
             <DataGrid Grid.Row="2"
                       ItemsSource="{Binding Keys}"
                       AutoGenerateColumns="False"
-                      CanUserAddRows="True">
+                      CanUserAddRows="True"
+                      CanUserDeleteRows="True"
+                      GridLinesVisibility="All"
+                      HorizontalGridLinesBrush="#64748B"
+                      VerticalGridLinesBrush="#64748B"
+                      BorderBrush="#475569"
+                      BorderThickness="1">
                 <DataGrid.Columns>
-                    <DataGridCheckBoxColumn Header="Enable"
-                                            Binding="{Binding Enabled}"
-                                            Width="80">
-                        <DataGridCheckBoxColumn.ElementStyle>
-                            <Style TargetType="CheckBox">
-                                <Setter Property="HorizontalAlignment" Value="Center"/>
-                                <Setter Property="VerticalAlignment" Value="Center"/>
-                            </Style>
-                        </DataGridCheckBoxColumn.ElementStyle>
-                    </DataGridCheckBoxColumn>
-
                     <DataGridTextColumn Header="Search Key (in log)"
                                         Binding="{Binding Key}"
                                         Width="*"/>
@@ -92,8 +87,57 @@
                                         Width="*"/>
                 </DataGrid.Columns>
             </DataGrid>
-            
-            <Button Grid.Row="3" Content="Run" Width="180" Height="40" Background="#0067C0" Foreground="White" BorderThickness="0" Cursor="Hand" Click="Run_Click" HorizontalAlignment="Center" Margin="0,15,0,0"/>
+
+            <StackPanel Grid.Row="3"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Center"
+                        Margin="0,15,0,0">
+                <Button Content="Reset Table"
+                        Width="150"
+                        Height="40"
+                        Click="Reset_Click"
+                        Margin="0,0,12,0">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Background" Value="White"/>
+                            <Setter Property="Foreground" Value="#0067C0"/>
+                            <Setter Property="BorderBrush" Value="#0067C0"/>
+                            <Setter Property="BorderThickness" Value="1"/>
+                            <Setter Property="Cursor" Value="Hand"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="ButtonBorder"
+                                                Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="{TemplateBinding BorderThickness}"
+                                                CornerRadius="6">
+                                            <ContentPresenter HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="ButtonBorder" Property="Background" Value="#E3F2FD"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="ButtonBorder" Property="Background" Value="#BAE6FD"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </Button.Style>
+                </Button>
+                <Button Content="Run"
+                        Width="180"
+                        Height="40"
+                        Background="#0067C0"
+                        Foreground="White"
+                        BorderThickness="0"
+                        Cursor="Hand"
+                        Click="Run_Click"/>
+            </StackPanel>
         </Grid>
     </Border>
 </UserControl>

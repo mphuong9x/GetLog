@@ -25,6 +25,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
+        ResetAnalyzeKeys();
         DataContext = this;
         MainContent.Content = new Views.WelcomeView();
         LogMessage("Application started. Please select a function to begin.");
@@ -68,6 +69,11 @@ public partial class MainWindow : Window
             {
                 _analyzeView = new Views.AnalyzeLogsView(LogMessage);
                 _analyzeView.RunRequested += async (s, ev) => await RunAnalysisAndExportAsync();
+                _analyzeView.ResetRequested += (s, ev) =>
+                {
+                    ResetAnalyzeKeys();
+                    LogMessage("Search table reset.");
+                };
             }
             MainContent.Content = _analyzeView;
         }
@@ -174,9 +180,19 @@ public partial class MainWindow : Window
     private List<(string Key, string AltKey, string ColumnName)> GetActiveKeys()
     {
         return Keys
-            .Where(x => x.Enabled && !string.IsNullOrWhiteSpace(x.Key))
+            .Where(x => !string.IsNullOrWhiteSpace(x.Key))
             .Select(x => (Key: x.Key, AltKey: x.AltKey ?? "", ColumnName: string.IsNullOrWhiteSpace(x.ColumnName) ? x.Key : x.ColumnName))
             .ToList();
+    }
+
+    private void ResetAnalyzeKeys()
+    {
+        Keys.Clear();
+    }
+
+    private void Home_Click(object sender, RoutedEventArgs e)
+    {
+        MainContent.Content = new Views.WelcomeView();
     }
 
     private void Nav_Pending_Click(object sender, RoutedEventArgs e)
