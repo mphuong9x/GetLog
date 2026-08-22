@@ -1,0 +1,220 @@
+================================================================================
+TOM TAT: PHAT HANH MOT BAN AGENT MOI
+================================================================================
+
+Moi lenh duoi day chay tu THU MUC GOC DU AN:
+  C:\Users\Administrator\Desktop\TESS\MProject
+
+
+--------------------------------------------------------------------------------
+0. DIEU KIEN TIEN QUYET (kiem tra 1 lan, khong lam lai moi lan phat hanh)
+--------------------------------------------------------------------------------
+
+[a] Cap khoa ky da co san o goc du an (tao ngay 05/08/2026, .gitignore da chan):
+      agent-release-private.pem   -> CON DAU, chi de tren may build, KHONG len server
+      agent-release-public.pem    -> MAU DAU, nhung vao tram + server
+
+    *** TUYET DOI KHONG chay lai `-GenerateKeyPair`. Khoa moi = moi tram dang
+        chay se tu choi HET moi ban phat hanh sau nay. ***
+
+[b] Public key phai giong nhau o 3 noi (da verify khop ngay 12/08/2026):
+      - agent-release-public.pem                              (repo)
+      - MProject.Api/appsettings.json -> AgentRelease:PublicKeyPem   (server)
+      - C:\MSystemAgent\appsettings.json -> Agent:ReleasePublicKeyPem (tram)
+
+[c] Tram phai co: SelfUpdateEnabled = true VA ReleasePublicKeyPem khong rong.
+    Tram nao ReleasePublicKeyPem = "" thi fail-closed, tu choi 100% ban cap nhat
+    -> phai di cai tay ban nen 1 luot bang install-agent.ps1.
+
+[d] May build can: dotnet SDK + Visual Studio MSBuild (launcher net48 WPF khong
+    build duoc bang `dotnet build`) + openssl (Git for Windows) hoac PowerShell 7.
+
+
+--------------------------------------------------------------------------------
+1. DOI SO PHIEN BAN
+--------------------------------------------------------------------------------
+
+Mo file:  MProjectAgent\MProjectAgent.csproj   (dong 13)
+
+    <Version>2.0.0.0</Version>   ->   <Version>2.1.0.0</Version>
+
+BAT BUOC:
+  - Du 4 so (2.1.0.0, khong phai 2.1.0).
+  - Phai LON HON ban dang chay tren tram, neu khong tram bo qua im lang.
+  - Server tu choi neu trung so voi mot release da co.
+
+
+--------------------------------------------------------------------------------
+2. BUILD + DONG GOI + KY  (1 lenh)
+--------------------------------------------------------------------------------
+
+  powershell -NoProfile -ExecutionPolicy Bypass -File scripts\package-agent.ps1 -SignWith .\agent-release-private.pem
+
+Lenh nay lam tuan tu:
+  - dotnet publish agent (net8, self-contained single-file, win-x64)
+  - MSBuild launcher (net48 WPF) roi bundle canh agent
+  - Bundle them install-agent.ps1
+  - Hoi CHINH file exe vua build ve so version (`MProjectAgent.exe version`)
+  - Nen zip voi MProjectAgent.exe NAM O GOC zip (server bat buoc)
+  - Ky zip bang private key -> in chu ky ra man hinh + ghi ra file .signature.txt
+
+Sinh ra trong artifacts\:
+  MProjectAgent-win-x64\                    thu muc cai tay cho tram moi
+  MProjectAgent-2.1.0.0.zip                 file upload len web
+  MProjectAgent-2.1.0.0.zip.signature.txt   chu ky base64
+
+Cuoi man hinh in ra dung 3 thu can dan len web: Version / Archive / Signature.
+
+>> Neu can dung TRON BO (goi tram + goi server + schema DB), vi du chuyen di xuong:
+
+  powershell -NoProfile -ExecutionPolicy Bypass -File scripts\prepare-deploy.ps1 `
+    -ServerUrl "https://192.168.242.91:8443" `
+    -InstallerToken "dev_installer_token_min_24_chars_set_by_dangminhphuong" `
+    -InstallRootBase "D:\Apps" `
+    -PublicKeyPath .\agent-release-public.pem `
+    -SignWith .\agent-release-private.pem
+
+
+--------------------------------------------------------------------------------
+3. LAY CHU KY DE DAN
+--------------------------------------------------------------------------------
+
+Chu ky da in san o cuoi buoc 2. Neu can copy lai:
+
+  Get-Content .\artifacts\MProjectAgent-2.1.0.0.zip.signature.txt -Raw | Set-Clipboard
+
+Neu da co zip san, chi muon ky lai (khong build lai):
+
+  powershell -NoProfile -ExecutionPolicy Bypass -File scripts\sign-agent-release.ps1 -Sign -ArchivePath .\artifacts\MProjectAgent-2.1.0.0.zip
+
+Muon tu kiem tra chu ky truoc khi upload (Git Bash):
+
+  openssl base64 -d -in artifacts/MProjectAgent-2.1.0.0.zip.signature.txt -out /tmp/rel.sig
+  openssl dgst -sha256 -verify agent-release-public.pem -signature /tmp/rel.sig artifacts/MProjectAgent-2.1.0.0.zip
+  # ket qua mong doi: Verified OK
+
+O "Release signature (base64)" tren web la CHU KY cua dung file zip do,
+KHONG PHAI public key trong appsettings.json. Moi ban zip mot chu ky khac nhau.
+
+
+--------------------------------------------------------------------------------
+4. UPLOAD LEN WEB
+--------------------------------------------------------------------------------
+
+Web -> Agent releases -> nut "Phat hanh ban agent":
+
+  Version                    2.1.0.0        (du 4 so, dung so o buoc 1)
+  Notes                      ghi chu, khong bat buoc
+  Release signature (base64) dan chu ky (Ctrl+V)
+  Archive                    chon dung file .zip vua tao
+
+Bam Phat hanh -> ban moi active ngay lap tuc (chi 1 release active tai 1 thoi diem).
+
+Server verify chu ky ngay luc upload (AgentReleaseService.EnsureSignatureTrusted),
+nen dan sai la bao do tai cho, khong phai doi den luc tram tu choi.
+
+
+--------------------------------------------------------------------------------
+5. SAU KHI ACTIVE - TRAM TU LAM GI
+--------------------------------------------------------------------------------
+
+ 1. Server chao ban moi trong response heartbeat (tram heartbeat moi 30 giay),
+    chi chao khi ban active CAO HON version tram bao, hoac release bat ForceApply.
+
+ 2. Tram KHONG tai ngay: dat lich ngau nhien trong 0-900 giay (UpdateJitterSeconds)
+    de 2000 may khong cung tai mot luc. Vai phut dau khong thay gi la BINH THUONG.
+
+ 3. Tai zip qua API server -> kiem SHA-256 khop -> verify chu ky bang public key
+    cua tram. Sai bat ky dieu nao -> ghi outcome "rejected", KHONG cai.
+
+ 4. Giai nen vao C:\ProgramData\MProjectAgent\update\staging roi chay apply-update:
+      - sc stop MProjectAgent (cho toi da 60s; khong dung duoc -> huy, bat lai,
+        khong dung file nao)
+      - kill MProjectLauncher.exe (no khoa file; agent len lai tu bat launcher)
+      - backup toan bo thu muc cai -> update\backup
+      - copy de, BO QUA moi appsettings*.json o goc  => config tram giu nguyen
+      - sc start; len RUNNING -> "applied"
+        khong len -> TU ROLLBACK tu backup -> "rolled_back"
+
+ 5. Heartbeat ke tiep gui update-result.json len -> web hien adoption band
+    (Dung ban active / Cu hon / offline) + cot lich su update cua tung may.
+
+ 6. Neu that bai: thu lai sau 5 phut -> 20 phut -> 80 phut -> toi da moi 6 tieng.
+    Khong bao gio hot-loop tai lai lien tuc.
+
+Anh huong san xuat:
+  - APP TEST KHONG BI DUNG. Supervisor luu PID vao supervised.json va re-attach
+    vao dung process dang chay sau khi agent khoi dong lai.
+  - Launcher (tray cua cong nhan) tat ~30-60 giay roi tu hien lai.
+  - Thuong 15-30 phut la phan lon tram len ban moi. May dang tat se update khi bat.
+
+
+--------------------------------------------------------------------------------
+6. HA VE BAN CU (khi ban moi co van de)
+--------------------------------------------------------------------------------
+
+Web -> Agent releases -> bam vao so phien ban CU -> nut do "Ha ve ban nay".
+Dat ForceApply nen tram ha xuong ke ca khi version thap hon ban dang chay.
+
+
+--------------------------------------------------------------------------------
+7. LOI THUONG GAP
+--------------------------------------------------------------------------------
+
+Web bao "signature does not match"
+  -> Dan nham public key thay vi chu ky, hoac ky file zip khac voi file dang chon.
+     Ky lai DUNG file do.
+
+Web bao "version already exists"
+  -> Quen doi <Version> trong csproj. Quay lai buoc 1.
+
+Web bao "Signature must be base64"
+  -> Chuoi dan vao bi dut/lan ky tu la. Copy lai tu file .signature.txt.
+
+Phat hanh xong khong tram nao len ban moi
+  -> Xem 2 cot "Bat self-update" va "Co key ky" tren web. Bang 0 = tram chua co
+     mau dau -> phai cai tay ban nen bang install-agent.ps1.
+  -> Hoac chua qua 15 phut jitter. Doi them.
+
+Mot vai tram bao "failed to update"
+  -> Mo tren may do: C:\ProgramData\MProjectAgent\update\apply-update.log
+     Agent cu van chay binh thuong, khong chet may.
+
+Get-Content bao "Cannot find path ...\artifacts\artifacts\..."
+  -> Dang dung san trong artifacts\ ma van go tien to .\artifacts\. Bo tien to di.
+
+
+--------------------------------------------------------------------------------
+8. CAM KY
+--------------------------------------------------------------------------------
+
+- KHONG chay lai sign-agent-release.ps1 -GenerateKeyPair.
+- KHONG dua agent-release-private.pem len server hay len git.
+- KHONG sua/nen lai file zip sau khi da ky (sai 1 byte la chu ky hong).
+- KHONG dan public key vao o Release signature.
+- Doi dia chi server cua tram PHAI sua tay tren tung tram - ban cap nhat khong
+  bao gio ghi de appsettings.json cua tram (co y, de tranh treo nham server).
+
+
+--------------------------------------------------------------------------------
+9. TINH TRANG HIEN TAI (12/08/2026) - CHO DOT DI XUONG DAU TIEN
+--------------------------------------------------------------------------------
+
+Ban nen 2.0.0.0 da build + ky san trong artifacts\ (da verify Verified OK).
+
+THU TU BAT BUOC lan dau:  SERVER  ->  TRAM  ->  PHAT HANH
+
+  1) SERVER: server xuong dang la ban 24/07, CHUA co trang Agent releases
+     -> chay update-server.ps1 tu artifacts\server\ truoc, khong thi khong
+        publish duoc gi.
+  2) TRAM:   moi tram cai tay 1 luot tu artifacts\MProjectAgent-win-x64\
+     -> .\install-agent.ps1  (PowerShell Administrator)
+        vi tram hien tai ReleasePublicKeyPem = "" nen tu choi moi OTA.
+  3) WEB:    publish MProjectAgent-2.0.0.0.zip + chu ky.
+
+Tu ban 2.1.0.0 tro di chi con buoc 1-4 cua tai lieu nay, khong phai di tram nua.
+
+*** Trong artifacts\ VAN CON MProjectAgent-win-x64.zip va server.zip cu ngay
+    31/07 - DUNG MANG NHAM. ***
+
+================================================================================
