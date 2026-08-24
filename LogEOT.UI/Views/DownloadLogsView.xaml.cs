@@ -311,6 +311,9 @@ public partial class DownloadLogsView : System.Windows.Controls.UserControl
                 foreach (var file in files)
                 {
                     var fileName = System.IO.Path.GetFileName(file);
+                    if (!fileName.StartsWith("PASS_", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
                     string prefix = fileName.Length >= 17 ? fileName.Substring(0, 17) : fileName;
 
                     if (!logDict.ContainsKey(prefix))
