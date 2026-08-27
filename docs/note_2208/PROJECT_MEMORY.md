@@ -1,6 +1,6 @@
 # MProject Durable Project Memory
 
-Last verified: 2026-08-22
+Last verified: 2026-08-27
 
 This document is durable project context for future Codex sessions. It contains
 architecture, invariants, commands, and known traps. It intentionally excludes
@@ -124,6 +124,10 @@ once stations are deployed, rollout compatibility becomes a production concern.
 - Some routes deliberately remain visible and render `AdminOnlyNotice` for a
   non-admin. Do not replace that behavior with a generic hidden route without
   checking the product requirement.
+- New approval requests persist a target/change snapshot at submit time; the
+  detail API and approval drawer use it for approver review. Historical requests
+  can have a null snapshot and use live context only as a labeled fallback; do
+  not reconstruct an immutable approval decision from a live target.
 - Test Monitor, Agent Releases, Override Files, and Config Baselines currently
   use this visible-notice behavior. Roles is intentionally hidden for a
   non-admin. Installation Jobs remains readable with software read permission,
@@ -151,7 +155,7 @@ complete set. User-paged lists should continue fetching one page at a time.
 
 - There is no WebSocket, SSE, or SignalR channel. Live behavior is polling:
   computers approximately every 30 seconds, active installation jobs every 3
-  seconds, and approval badge state approximately every 60 seconds.
+  seconds, and approval badge/list state approximately every 60 seconds.
 - Installation polling can stop when no active job remains, so a job created by
   another actor may require a manual refresh. Do not assume all operational
   screens are continuously live.
@@ -176,10 +180,13 @@ complete set. User-paged lists should continue fetching one page at a time.
 - Storage provider is configurable as local disk or MinIO. Uploads use tus;
   large-file behavior and hash verification are part of the integrity model.
 - **Current:** startup calls `AppDbSeeder.SeedAsync`. The seeder acquires a
-  PostgreSQL advisory lock, runs `Database.MigrateAsync()`, and then applies
-  seed data. This supersedes old notes that the backend never auto-migrates.
-- Deployment scripts may also produce/apply an idempotent schema SQL artifact.
-  Inspect the target runbook and script before production deployment.
+  PostgreSQL advisory lock and applies seed data; it only runs
+  `Database.MigrateAsync()` when `Database:AutoMigrate` is enabled. The default
+  is enabled for Development and disabled for Production.
+- Production deployment owns schema migration through the generated idempotent
+  schema SQL artifact. `-SkipSchema` therefore also prevents startup migration
+  in Production. Rollback still needs an expand/contract and practiced database
+  restore strategy before destructive migrations are considered safe.
 
 ### Main domain clusters
 
@@ -204,11 +211,12 @@ complete set. User-paged lists should continue fetching one page at a time.
 - Blob deletion must consider every live reference, including software files,
   override/config/document references. `ReferenceCount` can drift and is not by
   itself proof that a blob is unreferenced.
-- Installation jobs define state transitions and watchdog timestamps, but the
-  current entity has no optimistic-concurrency token. Concurrent progress,
-  cancel, complete, and watchdog writes must be treated as a current open race.
-  Progress keep-alives remain semantically important even if byte count does not
-  change.
+- Installation jobs define state transitions and watchdog timestamps and use a
+  shared optimistic-concurrency version. Real PostgreSQL two-context tests cover
+  cancel-vs-progress and watchdog-vs-complete so stale writes cannot revive a
+  terminal state. Agent-side durable journal/resume and idempotent completion
+  remain open. Progress keep-alives remain semantically important even if byte
+  count does not change.
 - `DomainEventDispatcherService` currently logs pending events and marks them
   processed; it does not dispatch handlers or retry side effects. Do not treat
   the current table/hosted service as a transactional outbox.
@@ -245,8 +253,9 @@ The normal end-to-end path is:
    missing downloads plus effective file metadata.
 6. Agent acknowledges the job, downloads missing blobs in parallel, verifies
    and caches them, emits throttled byte progress plus keep-alives, then deploys
-   under the configured install root (normally `D:\Apps`). Current write-path
-   containment is an open risk documented below.
+   under the configured install root (normally `D:\Apps`). Write-path
+   containment is implemented; legacy-station migration/rollback rollout is
+   still tracked in the checklist.
 7. Agent completes the server job, updates its local catalog, and applies launch
    policy through `ProcessSupervisor`. Job execution is sequential even though
    blob downloads within a job can be parallel.
@@ -255,9 +264,9 @@ The normal end-to-end path is:
 
 Package metadata includes auto-start, close-on-update, and remove-on-unassign
 flags. A pin/deploy target must be a released version. Forking/cloning a new
-Draft is the intended edit path, but current code does not fully enforce either
-`AutoRemoveOnUnassign` or released-version immutability; see the open risks
-below before changing these flows.
+Draft is the edit path; released metadata mutations are rejected and artifact
+mutations advance the version generation. A real PostgreSQL two-context race
+test is still required before the immutability remediation is closed.
 
 ### Config layering
 
@@ -366,12 +375,11 @@ yarn test --run
 yarn test:coverage
 ```
 
-Node 20+ and Yarn 1.22.x are the documented baseline. Both `yarn.lock` and
-`package-lock.json` currently exist, and neither cleanly matches the direct
-dependencies in `package.json`. Existing `node_modules` also contains stale
-packages, so a local build can hide clean-install failures. Dependency work
-should first choose Yarn as the declared source, regenerate `yarn.lock`, remove
-the npm lock only with explicit scope, and verify from a clean install.
+Node 20+ and Yarn 1.22.22 are the frontend baseline. `yarn.lock` is the only
+dependency lockfile and React Router/DOM are pinned together at 7.9.6 to avoid
+split router runtimes. Frontend CI uses Corepack and a frozen install before
+lint/test/build. `prepare-deploy.ps1` removes `node_modules` and performs the
+same frozen install before building the deployment artifact.
 
 ### Backend and agent
 
@@ -433,6 +441,10 @@ occurs. Deployment scripts must remain PowerShell 5.1-safe and ASCII-safe.
   may need two-line breaking to avoid colliding with `extra` actions.
 - **Config arrays:** Parameter identity that embeds an array index becomes stale
   when elements reorder; retain stale detection and avoid silent retargeting.
+- **Config approval revisions:** an active override remains effective while a
+  replacement is Draft/PendingApproval. Approval promotes the pending value;
+  rejection/cancel clears only the proposal. Deleting the override cancels its
+  pending approval in the same database transaction.
 - **Agent config:** OTA/install must not replace station config, state, or keys.
 - **Agent state protection:** the agent token is present in local
   `agent-state.json`; confidentiality depends on the ProgramData directory ACL.
@@ -440,68 +452,84 @@ occurs. Deployment scripts must remain PowerShell 5.1-safe and ASCII-safe.
   and scripts share the canonical `https://te:8443` hostname contract. Existing
   stations must migrate DNS/hosts, trust and config with strict probe before the
   hardened binary is rolled out; do not OTA it to legacy IP/bypass config.
-- **Manifest path containment (lab validation pending):** backend and Agent now
+- **Manifest path containment (physical validation pending):** backend and Agent
   reject rooted paths, traversal, reserved names, collisions, ADS and existing
-  reparse escapes. Fresh installs use immutable PackageId roots and legacy roots
-  are bridged from catalog/cache. Physical legacy migration, junction race and
-  Windows service-identity E2E remain open rollout work.
-- **Shell-associated entry points (current open risk):** legacy parity requires
-  entries such as `.bat`, `.jar`, and `.py`. `ProcessSupervisor` requests shell
-  execution, but the production Windows-service path calls
-  `CreateProcessAsUser` with the file itself and does not honor file association.
-  Resolve each supported type to an explicit executable/argument contract and
-  test it from a real service/session boundary.
+  reparse escapes. Fresh installs use immutable PackageId roots. Legacy roots are
+  renamed in place to PackageId roots with cache/catalog crash recovery, preserving
+  the entire local tree. Deploy/cleanup/uninstall hold verified no-delete directory
+  handles, and station install denies standard users top-level package-root
+  create/delete/replace rights without removing write access inside legacy apps.
+  A malicious resolved-manifest E2E confirms Agent-side rejection independent of
+  Backend validation, and the junction handle barrier passes under LocalSystem
+  (`S-1-5-18`) in session 0 without touching the running production service.
+  A real station canary also confirms the install-root boundary denies a normal
+  user top-level root creation while the Agent remains online. Physical
+  legacy-root migration and the rollback matrix remain open rollout work; see
+  the SEC-001 handoff in `PROJECT_REVIEW_CHECKLIST.md` before continuing.
+- **Shell-associated entry points (lab validation pending):** `.exe`/`.com`,
+  `.bat`/`.cmd`, `.jar`, and `.py` are resolved to explicit executable/argument
+  contracts with the entry folder as working directory. Unsafe batch metacharacters
+  and unsupported extensions are rejected. A Windows fixture verifies that a
+  real batch wrapper can exit after launching a distinct configured watch process
+  while the supervisor attaches to and stops the child. A real Windows
+  Service/session identity fixture remains required before rollout.
 - **Software approval boundary (current state):** approval is optional per
   package. The working tree exposes the nullable package policy, reconciles
   Viewer to a read-only grant set (including removal of `software.download`),
   and rejects direct activation unless the current package policy has an
-  Approved request. Historical active assignments still require audit and
-  manual disposition before this remediation is closed.
-- **Frontend approval contract (current open risk):** package and Deployment
-  Matrix mutations are gated by their granular backend permissions, and package
-  policy is selectable. The approval drawer still omits target-specific change
-  details, and approval lists page a locally sliced snapshot capped at 100.
-  Return immutable target snapshots and use server pagination.
-- **Role/auth lifecycle (current open risk):** role-permission mutation now
-  enforces system-role, grantability and self-impact guards. Disabling a user,
-  resetting a password, or logging out still only revokes
-  refresh tokens but does not invalidate an already issued access JWT; approval
-  resolution must also require an active user. Add an authentication-version
-  claim and enforce system-role/self-impact invariants centrally.
-- **Upload authorization and cleanup (current open risk):** TUS authorization
-  accepts either software-manage or own-document before the upload purpose is
-  known. The legacy completion branch can attach a file to a Draft software
-  version, while direct blob completion creates no tracked lease/row for later
-  garbage collection. Bind upload capability to actor, purpose, target, size,
-  hash, and expiry.
+  Approved request. A read-only PostgreSQL audit checks forbidden Viewer grants,
+  active-plus-Pending assignments, and active assignments missing approval for
+  their current policy. Run it against every deployment database before rollout;
+  a clean result in one environment is not evidence for another.
+- **Frontend approval contract (current state):** package and Deployment Matrix
+  mutations are gated by their granular backend permissions, and package policy
+  is selectable. The approval drawer renders the immutable target/change
+  snapshot, while Inbox and My Requests fetch server-driven pages of 12 records
+  using the response total and refresh in the background every 60 seconds.
+- **Role/auth lifecycle (HTTP validation pending):** role-permission mutation
+  enforces system-role, grantability and self-impact guards. Access JWTs carry
+  `AuthVersion`; token validation checks the current active user/version, and
+  disable/password-security mutations advance the version. Approval resolution
+  excludes inactive users. Retain an HTTP issue-token/disable-or-reset/approve
+  negative test before closing the rollout item.
+- **Upload cleanup (current open risk):** current TUS clients use a short-lived
+  HMAC capability bound to actor, purpose, target, size, hash and expiry;
+  completion rechecks purpose-specific authorization and the legacy branch is
+  disabled. Upload bytes still have no durable reservation/owner/expiry row, so
+  quota races and abandoned staging cleanup remain open. Keep an HTTP negative
+  matrix for purpose separation before closing authorization remediation.
 - **Assignment/install cancellation (current open risk):** deactivation/removal
-  marks active jobs cancelled in the server database but does not stop an
-  in-flight Agent deploy or persist uninstall intent for a partial install. A
-  terminal callback with a different status is currently treated as successful
-  idempotency. Preserve cancellation across server, Agent, catalog, and
-  inventory reconciliation.
-- **Agent job durability (current open risk):** Agent polls non-pending job states
-  but executes only Pending jobs, and completion is acknowledged by the server
-  before the local catalog/launch commit. A crash or lost response can leave the
-  two sides permanently inconsistent. Use a durable local job journal and an
-  idempotent, resumable completion protocol.
-- **Test log cursor (current open risk):** scanner pagination re-reads the oldest
-  overlap batch. A backlog larger than the batch size can starve every newer
-  file, and equal timestamps can be skipped. Use a stable `(mtime, path)` keyset
-  cursor and verify eventual delivery over multiple scan cycles.
-- **Release/flag semantics (current open risk):** released entry-point metadata
-  can still be changed, file/config operations can race release, and
-  `AutoRemoveOnUnassign=false` currently does not prevent uninstall. Treat UI
-  labels and memory as intent until these invariants are enforced transactionally.
-- **Migration rollback (current open risk):** API startup always runs EF
-  migrations, including migrations that drop schema. Server update rollback
-  restores binaries but not the database, and `-SkipSchema` does not suppress
-  startup migration. Use one migration owner and an expand/contract or tested
-  database restore strategy.
-- **Station bootstrap secret (current open risk):** deployment currently bakes a
-  shared InstallerToken into station configuration and does not remove it after
-  enrollment. Move to per-machine, one-time enrollment material, remove it after
-  use, and enforce restrictive installation/config ACLs.
+  persists a CancelJob command and the Agent links it into active download,
+  deploy, catalog and launch work. Conflicting terminal callbacks are rejected.
+  Uninstall intent is also retained for interrupted installs without an Installed
+  record. Unknown catalog inventory is validated and reconciled into server state,
+  including policy-driven uninstall. The pause/remove/resume barrier E2E remains
+  open.
+- **Agent job durability (current open risk):** server InstallationJob rows use
+  optimistic concurrency so stale progress/watchdog writes cannot overwrite a
+  terminal transition. Agent still polls non-pending job states but executes only
+  Pending jobs, and server completion precedes the local catalog/launch commit.
+  A crash or lost response can leave the two sides inconsistent; use a durable
+  local job journal and an idempotent, resumable completion protocol.
+- **Test log cursor (current state):** scanner uses a stable `(mtime, path)`
+  cursor, drains fresh data before bounded overlap replay, and advances the
+  watermark only after acknowledgement. Preserve the equal-timestamp and
+  multi-cycle tests when changing scanner batching.
+- **Release/flag semantics (current state):** released metadata is immutable and
+  file/config mutation uses the version generation/transaction guards. A real
+  PostgreSQL two-context barrier test verifies that release winning a paused
+  upload-finalization race rejects the artifact mutation without leaving new
+  file/blob state. `AutoRemoveOnUnassign=false` keeps the installed payload
+  unmanaged, while active work is cancelled.
+- **Migration rollback (current open risk):** production migration ownership is
+  the deploy-generated schema artifact and startup auto-migration is disabled.
+  Binary rollback still does not undo schema; destructive changes need a
+  compatibility window, preflight and practiced database restore/fault test.
+- **Station bootstrap secret (physical validation pending):** shared Agent
+  packaging rejects a non-empty InstallerToken; per-machine enrollment tokens
+  are expiring and consumed once, and Agent scrubs bootstrap material after
+  enrollment. Keep global self-announce disabled in production and verify ACLs
+  plus token reuse under a standard-user station account.
 - **OTA exactness (current open risk):** update and rollback copy files as an
   overlay, so files removed from a release can survive both directions. Agent,
   Launcher, and the loose contracts DLL are copied one at a time, so power loss
@@ -509,10 +537,12 @@ occurs. Deployment scripts must remain PowerShell 5.1-safe and ASCII-safe.
   `RUNNING` is accepted immediately as success. Apply an atomic/exact signed
   bundle while preserving only explicit station state, and require a stable
   readiness signal before commit.
-- **Blob authorization/GC (current open risk):** local agent blob download checks
-  only that a storage path exists, not that the authenticated station owns an
-  active job/release for it. GC also has writer/delete races. Use short-lived
-  resource-bound capabilities and a durable claim/tombstone deletion protocol.
+- **Blob GC (current state):** Agent downloads use short-lived
+  capabilities bound to agent, job/release, SHA and expiry, with current graph
+  authorization rechecked at download time. GC claims a per-SHA tombstone,
+  writers reject claimed blobs, storage failure is retryable, and the DB row is
+  removed only after object deletion. Real PostgreSQL barrier tests verify both
+  GC-vs-software-upload and GC-vs-config-render writer races.
 - **Factory watchdog config (current open risk):** the base backend settings are
   tuned to 30 minutes inactivity / 180 minutes maximum attempt, but
   `install-server.ps1` currently generates 10 / 30. Because production
@@ -570,9 +600,10 @@ using a topic:
    process state, or credentials.
 4. Prefer the current verified code when memory and a runbook disagree.
 
-Known superseded memory example: older deployment notes say the backend does
-not auto-migrate. Current `AppDbSeeder` does run `Database.MigrateAsync()` under
-an advisory lock.
+Known superseded memory example: older deployment notes alternately say the
+backend never migrates or always migrates at startup. Current behavior is
+environment/config dependent: Development defaults to startup migration;
+Production defaults to deploy-owned schema SQL.
 
 ## 13. Security Hygiene
 
