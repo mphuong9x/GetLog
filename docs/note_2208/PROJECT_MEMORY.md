@@ -185,8 +185,9 @@ complete set. User-paged lists should continue fetching one page at a time.
   is enabled for Development and disabled for Production.
 - Production deployment owns schema migration through the generated idempotent
   schema SQL artifact. `-SkipSchema` therefore also prevents startup migration
-  in Production. Rollback still needs an expand/contract and practiced database
-  restore strategy before destructive migrations are considered safe.
+  in Production. Destructive/contract migrations require the generated safety
+  preflight, an approved expand/contract window, and verified backup restore.
+  The isolated IIS post-schema rollback drill remains the final DEP-001 gate.
 
 ### Main domain clusters
 
@@ -265,8 +266,9 @@ The normal end-to-end path is:
 Package metadata includes auto-start, close-on-update, and remove-on-unassign
 flags. A pin/deploy target must be a released version. Forking/cloning a new
 Draft is the edit path; released metadata mutations are rejected and artifact
-mutations advance the version generation. A real PostgreSQL two-context race
-test is still required before the immutability remediation is closed.
+mutations advance the version generation. A real PostgreSQL two-context barrier
+test verifies that a release transition wins safely over paused artifact
+finalization without leaving file/blob state.
 
 ### Config layering
 
@@ -295,7 +297,9 @@ test is still required before the immutability remediation is closed.
   protected token representation. Deleting local state while the server still
   owns the enrollment can leave the machine unable to re-announce.
 - Token rotation keeps one previous-token fallback until the new token is
-  accepted.
+  accepted. Authenticated requests capture the token and its in-memory
+  generation atomically; serialized transitions ignore delayed 401 responses
+  from older generations and reload durable latest state before fallback.
 
 ### Worker loops
 
@@ -344,11 +348,14 @@ test is still required before the immutability remediation is closed.
   interactive session and removes stale session-0 launcher processes.
 - IPC pipe: `MProjectAgent.Launcher`; one JSON request and response per line;
   operations are `status`, `run`, `stop`, and `restart`.
-- Current pipe ACL grants local Builtin Users read/write access and LocalSystem
-  full control. Any local user can therefore run/stop/restart a catalog app. The
-  single server instance also has no request-size or per-connection read
-  deadline, so a client can monopolize it. Treat IPC as a local-machine trust
-  boundary and add an operator identity/session policy plus bounded I/O.
+- Pipe ACL grants access only to interactive users and LocalSystem. The server
+  additionally requires the caller token to belong to the active console
+  session (LocalSystem remains allowed for privileged diagnostics). Each
+  connection carries exactly one request; four bounded listeners, request-size
+  limits, and read/write deadlines prevent a slow client from monopolizing IPC.
+- Launcher IPC uses an identification-level client token, an end-to-end
+  round-trip timeout, a bounded response, and a single-flight gate so overlapping
+  refreshes do not accumulate blocked pipe calls.
 - Agent serializes with `System.Text.Json`; launcher serializes with
   Newtonsoft.Json. Keep contracts plain, dependency-free, camel-case-compatible
   POCOs and retain the cross-serializer wire tests.
@@ -446,13 +453,28 @@ occurs. Deployment scripts must remain PowerShell 5.1-safe and ASCII-safe.
   rejection/cancel clears only the proposal. Deleting the override cancels its
   pending approval in the same database transaction.
 - **Agent config:** OTA/install must not replace station config, state, or keys.
+- **Launcher IPC boundary:** keep run/stop/restart restricted to the active
+  interactive console session. Do not broaden the pipe ACL back to Builtin Users
+  or remove bounded one-request connections; service, network, batch, stale RDP,
+  oversized, and slow clients must remain unable to control or monopolize it.
 - **Agent state protection:** the agent token is present in local
   `agent-state.json`; confidentiality depends on the ProgramData directory ACL.
-- **Factory TLS trust (rollout pending):** Agent now uses OS certificate trust
-  and scripts share the canonical `https://te:8443` hostname contract. Existing
-  stations must migrate DNS/hosts, trust and config with strict probe before the
-  hardened binary is rolled out; do not OTA it to legacy IP/bypass config.
-- **Manifest path containment (physical validation pending):** backend and Agent
+- **Factory TLS trust (completed 2026-08-28; fleet follow-up):** Agent uses OS
+  certificate trust and scripts share canonical `https://te:8443`. A production
+  `ServerClient` fixture verifies trusted/correct hostname success plus
+  untrusted, expired and wrong-host rejection before an HTTP request/token
+  reaches the server (Agent 245/245). On 2026-08-28 the current backend was
+  deployed to IIS at `te -> 10.111.71.231`; strict live/ready probes pass and FT1
+  Agent 2.0.0.1 poll/heartbeat is confirmed on port 8443. The Agent migration
+  negative fixture restores config without restart when the TLS probe fails.
+  The former dev backend on 5107 is stopped; Agent heartbeat remains healthy
+  through IIS only, avoiding duplicate background services on the same DB.
+  A fresh package has no shared installer token/bypass and its installer strict
+  probe passes before the token gate. Owner accepted the server + live FT1
+  canary as closure evidence; disposable re-enrollment and broader fleet
+  URL/trust/config migration remain operational follow-up. Do not OTA to legacy
+  IP/bypass config.
+- **Manifest path containment (completed 2026-08-28):** backend and Agent
   reject rooted paths, traversal, reserved names, collisions, ADS and existing
   reparse escapes. Fresh installs use immutable PackageId roots. Legacy roots are
   renamed in place to PackageId roots with cache/catalog crash recovery, preserving
@@ -463,54 +485,68 @@ occurs. Deployment scripts must remain PowerShell 5.1-safe and ASCII-safe.
   Backend validation, and the junction handle barrier passes under LocalSystem
   (`S-1-5-18`) in session 0 without touching the running production service.
   A real station canary also confirms the install-root boundary denies a normal
-  user top-level root creation while the Agent remains online. Physical
-  legacy-root migration and the rollback matrix remain open rollout work; see
-  the SEC-001 handoff in `PROJECT_REVIEW_CHECKLIST.md` before continuing.
-- **Shell-associated entry points (lab validation pending):** `.exe`/`.com`,
+  user top-level root creation while the Agent remains online. A real legacy
+  BOM11 deployment renamed its root to PackageId and preserved all 2,238 files
+  byte-for-byte. A live rollback restored Agent 2.0.0.0 plus the legacy root,
+  verified the old service stayed healthy, then restored Agent 2.0.0.1 plus the
+  canonical root without payload drift or new Agent errors. Launcher then ran
+  and stopped the migrated BOM11 payload successfully (`exitCode=0`) with no
+  remaining payload process. Preserve these invariants and regression tests;
+  detailed evidence is in `PROJECT_REVIEW_CHECKLIST.md`.
+- **Shell-associated entry points (completed 2026-08-28):** `.exe`/`.com`,
   `.bat`/`.cmd`, `.jar`, and `.py` are resolved to explicit executable/argument
   contracts with the entry folder as working directory. Unsafe batch metacharacters
   and unsupported extensions are rejected. A Windows fixture verifies that a
   real batch wrapper can exit after launching a distinct configured watch process
-  while the supervisor attaches to and stops the child. A real Windows
-  Service/session identity fixture remains required before rollout.
-- **Software approval boundary (current state):** approval is optional per
-  package. The working tree exposes the nullable package policy, reconciles
+  while the supervisor attaches to and stops the child. The same fixture also
+  passed as a temporary LocalSystem Windows Service in session 0, including the
+  working-directory and child-watch assertions.
+- **Software approval boundary (completed 2026-08-28):** approval is optional
+  per package. The working tree exposes the nullable package policy, reconciles
   Viewer to a read-only grant set (including removal of `software.download`),
   and rejects direct activation unless the current package policy has an
-  Approved request. A read-only PostgreSQL audit checks forbidden Viewer grants,
-  active-plus-Pending assignments, and active assignments missing approval for
-  their current policy. Run it against every deployment database before rollout;
-  a clean result in one environment is not evidence for another.
+  Approved request. The production PostgreSQL audit passed and a direct IIS
+  Viewer matrix returned GET 200 plus 403 for create, release, download, assign
+  and activate without changing data. Focused backend tests passed 108/108 and
+  the full backend suite passed 941/941. Run the read-only audit against every
+  deployment database before rollout; a clean result in one environment is not
+  evidence for another.
 - **Frontend approval contract (current state):** package and Deployment Matrix
   mutations are gated by their granular backend permissions, and package policy
   is selectable. The approval drawer renders the immutable target/change
   snapshot, while Inbox and My Requests fetch server-driven pages of 12 records
   using the response total and refresh in the background every 60 seconds.
-- **Role/auth lifecycle (HTTP validation pending):** role-permission mutation
+- **Role/auth lifecycle (completed 2026-08-28):** role-permission mutation
   enforces system-role, grantability and self-impact guards. Access JWTs carry
   `AuthVersion`; token validation checks the current active user/version, and
   disable/password-security mutations advance the version. Approval resolution
-  excludes inactive users. Retain an HTTP issue-token/disable-or-reset/approve
-  negative test before closing the rollout item.
-- **Upload cleanup (current open risk):** current TUS clients use a short-lived
+  excludes inactive users. A real JwtBearer HTTP fixture verifies that previously
+  issued tokens receive 401 and cannot reach approval handling after disable or
+  password change.
+- **Upload cleanup (completed 2026-08-28):** current TUS clients use a short-lived
   HMAC capability bound to actor, purpose, target, size, hash and expiry;
   completion rechecks purpose-specific authorization and the legacy branch is
-  disabled. Upload bytes still have no durable reservation/owner/expiry row, so
-  quota races and abandoned staging cleanup remain open. Keep an HTTP negative
-  matrix for purpose separation before closing authorization remediation.
-- **Assignment/install cancellation (current open risk):** deactivation/removal
+  disabled. Durable reservation rows bind actor, purpose, target, object path,
+  size, hash, state and expiry before bytes are accepted. Reservation and quota
+  transitions are transactional; PostgreSQL advisory locks serialize competing
+  actor/hash writers. Cleanup expires abandoned reservations and retries safe
+  object deletion without deleting referenced/shared objects. Real HTTP and
+  PostgreSQL tests cover purpose separation and concurrent quota reservation.
+- **Assignment/install cancellation (completed 2026-08-28):** deactivation/removal
   persists a CancelJob command and the Agent links it into active download,
   deploy, catalog and launch work. Conflicting terminal callbacks are rejected.
   Uninstall intent is also retained for interrupted installs without an Installed
   record. Unknown catalog inventory is validated and reconciled into server state,
-  including policy-driven uninstall. The pause/remove/resume barrier E2E remains
-  open.
-- **Agent job durability (current open risk):** server InstallationJob rows use
+  including policy-driven uninstall. A filesystem/process barrier test pauses
+  deployment, removes the assignment, resumes the pipeline and verifies no new
+  file, process, catalog, cache or install root remains.
+- **Agent job durability (completed 2026-08-28):** server InstallationJob rows use
   optimistic concurrency so stale progress/watchdog writes cannot overwrite a
-  terminal transition. Agent still polls non-pending job states but executes only
-  Pending jobs, and server completion precedes the local catalog/launch commit.
-  A crash or lost response can leave the two sides inconsistent; use a durable
-  local job journal and an idempotent, resumable completion protocol.
+  terminal transition. Each execution has a server-bound generation identifier.
+  The Agent writes an atomic local journal before ACK/deploy/complete, resumes
+  Pending, Downloading and Installing work after restart, and retries idempotent
+  completion when a committed server response is lost. Recovery tests cover both
+  restart after ACK and server commit followed by a lost response.
 - **Test log cursor (current state):** scanner uses a stable `(mtime, path)`
   cursor, drains fresh data before bounded overlap replay, and advances the
   watermark only after acknowledgement. Preserve the equal-timestamp and
@@ -521,34 +557,52 @@ occurs. Deployment scripts must remain PowerShell 5.1-safe and ASCII-safe.
   upload-finalization race rejects the artifact mutation without leaving new
   file/blob state. `AutoRemoveOnUnassign=false` keeps the installed payload
   unmanaged, while active work is cancelled.
-- **Migration rollback (current open risk):** production migration ownership is
+- **Migration rollback (completed 2026-08-28):** production migration ownership is
   the deploy-generated schema artifact and startup auto-migration is disabled.
-  Binary rollback still does not undo schema; destructive changes need a
-  compatibility window, preflight and practiced database restore/fault test.
-- **Station bootstrap secret (physical validation pending):** shared Agent
-  packaging rejects a non-empty InstallerToken; per-machine enrollment tokens
-  are expiring and consumed once, and Agent scrubs bootstrap material after
-  enrollment. Keep global self-announce disabled in production and verify ACLs
-  plus token reuse under a standard-user station account.
-- **OTA exactness (current open risk):** update and rollback copy files as an
-  overlay, so files removed from a release can survive both directions. Agent,
-  Launcher, and the loose contracts DLL are copied one at a time, so power loss
-  can leave a mixed version that the next startup does not repair. Service
-  `RUNNING` is accepted immediately as success. Apply an atomic/exact signed
-  bundle while preserving only explicit station state, and require a stable
-  readiness signal before commit.
+  The deploy artifact now carries a migration-safety manifest; pending contract
+  operations are blocked unless an explicit restore-capable window is approved.
+  Update creates a database dump, restores it into an isolated drill database,
+  and restores both exact code and database snapshots on failure. A disposable
+  real IIS/PostgreSQL `-FaultAfterSchema` drill verifies exact old-code restore,
+  database restore, removal of new-only code/schema, and strict-TLS readiness of
+  the previous version. Preserve the expand/contract approval window for every
+  future destructive migration even though the rollback mechanism is verified.
+- **Station bootstrap secret (completed 2026-08-28):** shared Agent packaging
+  rejects and removes nested/environment-specific config, verifies the final
+  archive contains exactly one root config and deletes a failed archive.
+  Per-machine enrollment tokens are bound to ComputerId, expire and are consumed
+  once. A real standard-user impersonation could not read installed config or
+  ProgramData state. Current Agent artifacts contain zero non-empty
+  InstallerToken, IIS production global self-announce is disabled, and FT1
+  continues to poll/heartbeat successfully. Protected rollback snapshots may
+  contain old server config; after any restore, re-verify that InstallerToken is
+  empty before exposing the service.
+- **OTA exactness (completed 2026-08-28):** packages contain a signed manifest
+  covering the exact payload file set, hashes, sizes, version and protocol.
+  Agent validates and stages into a versioned directory; the updater performs an
+  exact directory switch, preserves only top-level station-owned appsettings,
+  and rolls back to the exact old snapshot on injected switch failures. Recovery
+  markers are handled before version short-circuit, and success requires an
+  accepted heartbeat readiness marker after SCM startup rather than SCM state
+  alone.
 - **Blob GC (current state):** Agent downloads use short-lived
   capabilities bound to agent, job/release, SHA and expiry, with current graph
   authorization rechecked at download time. GC claims a per-SHA tombstone,
   writers reject claimed blobs, storage failure is retryable, and the DB row is
   removed only after object deletion. Real PostgreSQL barrier tests verify both
   GC-vs-software-upload and GC-vs-config-render writer races.
-- **Factory watchdog config (current open risk):** the base backend settings are
-  tuned to 30 minutes inactivity / 180 minutes maximum attempt, but
-  `install-server.ps1` currently generates 10 / 30. Because production
-  artifacts omit environment settings, a fresh install can silently restore
-  the shorter timeouts. Reconcile script and application defaults before the
-  next clean install.
+- **Tracked development credentials (current operational follow-up):** tracked
+  development settings and bootstrap scripts no longer provide fixed secrets,
+  the initial admin password must come from external configuration, secret
+  scanning runs in CI, and startup rejects known exposed fingerprints outside a
+  loopback-only Development process. SEC-005 remains open until the environment
+  owners confirm that every historical value still in use has been rotated.
+- **Factory watchdog config (completed 2026-08-29):** production uses 30 minutes
+  inactivity and 180 minutes maximum attempt across base backend settings,
+  domain fallbacks, fresh server install and local IIS setup. Configuration
+  contract tests prevent those sources from drifting, and a long-running job
+  remains healthy while it continues to report progress. Updates preserve an
+  existing operator override rather than silently replacing it.
 - **Incomplete endpoint:** `/agent/v1/reboot-required` currently returns 501;
   do not build a workflow that assumes the report is persisted.
 - **Scanner scope:** barcode-scanner handling belongs only on the Test Assets
