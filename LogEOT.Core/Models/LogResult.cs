@@ -4,6 +4,8 @@ public class LogResult
 {
     public string MAC { get; set; } = "";
 
+    public string Result { get; set; } = "";
+
     public Dictionary<string, string?> Values { get; set; } = new();
 
     // Limits printed next to the value on the matched line, keyed like Values (by column name).

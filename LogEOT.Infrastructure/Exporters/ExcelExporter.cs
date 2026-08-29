@@ -27,7 +27,7 @@ public class ExcelExporter
         using var workbook = new XLWorkbook();
 
         int maxGroups = results.Count > 0 ? results.Max(r => r.AudioMetricGroups?.Count ?? 0) : 0;
-        
+
         if (maxGroups == 0)
         {
             workbook.Worksheets.Add("Audio Logs");
@@ -69,9 +69,9 @@ public class ExcelExporter
 
             for (int i = 0; i < frequencies.Count; i++)
             {
-                int col = 2 + i; 
+                int col = 2 + i;
                 sheet.Cell(1, col).Value = frequencies[i];
-                
+
                 var firstMetric = results
                     .Where(r => r.AudioMetricGroups != null && r.AudioMetricGroups.Count > groupIdx)
                     .SelectMany(r => r.AudioMetricGroups![groupIdx].Metrics)
@@ -159,12 +159,13 @@ public class ExcelExporter
         sheet.Cell(uslRow, 1).Value = "UPPER_SL";
         sheet.Cell(lslRow, 1).Value = "LOWER_SL";
         sheet.Cell(headerRow, 1).Value = "MAC \\ Item";
+        sheet.Cell(headerRow, 2).Value = "Result";
 
         var limits = new (double? Lower, double? Upper)[keys.Count];
 
         for (int i = 0; i < keys.Count; i++)
         {
-            int col = 2 + i;
+            int col = 3 + i;
             string columnName = keys[i].ColumnName;
 
             var raw = data
@@ -184,10 +185,11 @@ public class ExcelExporter
 
             sheet.Cell(row, 1).Value = data[r].MAC;
             sheet.Cell(row, 1).Style.Font.FontName = "Consolas";
+            sheet.Cell(row, 2).Value = data[r].Result;
 
             for (int i = 0; i < keys.Count; i++)
             {
-                var cell = sheet.Cell(row, 2 + i);
+                var cell = sheet.Cell(row, 3 + i);
                 data[r].Values.TryGetValue(keys[i].ColumnName, out var raw);
 
                 if (string.IsNullOrWhiteSpace(raw))
@@ -205,7 +207,7 @@ public class ExcelExporter
             }
         }
 
-        int lastCol = 1 + keys.Count;
+        int lastCol = 2 + keys.Count;
         int lastRow = firstDataRow + data.Count - 1;
 
         var limitRows = sheet.Range(uslRow, 1, lslRow, lastCol);
@@ -219,9 +221,10 @@ public class ExcelExporter
         header.Style.Alignment.WrapText = true;
 
         sheet.SheetView.Freeze(headerRow, 1);
-        sheet.Range(headerRow, 1, lastRow, 1).SetAutoFilter();
+        sheet.Range(headerRow, 1, lastRow, lastCol).SetAutoFilter();
 
         sheet.Column(1).Width = 22;
-        for (int i = 0; i < keys.Count; i++) sheet.Column(2 + i).Width = 13;
+        sheet.Column(2).Width = 10;
+        for (int i = 0; i < keys.Count; i++) sheet.Column(3 + i).Width = 13;
     }
-}
+}

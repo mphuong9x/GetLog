@@ -1,3 +1,4 @@
+using LogEOT.Core.Models;
 using System.Windows.Controls;
 
 namespace LogEOT.UI.Views;
@@ -25,6 +26,13 @@ public partial class AnalyzeLogsView : System.Windows.Controls.UserControl
 
     public event EventHandler? RunRequested;
     public event EventHandler? ResetRequested;
+
+    public LogSelection SelectedLogSelection =>
+        AllLogsRadioButton.IsChecked == true
+            ? LogSelection.All
+            : FailLogsRadioButton.IsChecked == true
+                ? LogSelection.Fail
+                : LogSelection.Pass;
 
     private void Run_Click(object sender, System.Windows.RoutedEventArgs e)
     {

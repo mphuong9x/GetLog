@@ -83,6 +83,7 @@ public partial class MainWindow : Window
     {
         var view = (Views.AnalyzeLogsView)MainContent.Content;
         var folder = view.FolderTextBox.Text;
+        var selection = view.SelectedLogSelection;
 
         if (string.IsNullOrWhiteSpace(folder))
         {
@@ -101,11 +102,12 @@ public partial class MainWindow : Window
         try
         {
             LogMessage($"Starting analysis in folder: {folder}");
+            LogMessage($"Log type: {selection}");
             LogMessage($"Search Keys count: {keys.Count}");
 
             var service = new LogProcessingService();
 
-            _results = await Task.Run(() => service.ProcessFolder(folder, keys));
+            _results = await Task.Run(() => service.ProcessFolder(folder, keys, selection: selection));
 
             LogMessage($"Analyze finished successfully. Logs processed: {_results.Count}");
 

@@ -14,6 +14,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
@@ -55,7 +56,32 @@
                 </Button>
             </Grid>
 
-            <Grid Grid.Row="1" Margin="0,0,0,10">
+            <StackPanel Grid.Row="1"
+                        Orientation="Horizontal"
+                        Margin="0,0,0,15">
+                <TextBlock Text="Log Type:"
+                           VerticalAlignment="Center"
+                           FontWeight="SemiBold"
+                           Foreground="#334155"
+                           Margin="0,0,16,0"/>
+                <RadioButton x:Name="PassLogsRadioButton"
+                             Content="PASS Logs"
+                             GroupName="AnalyzeLogType"
+                             IsChecked="True"
+                             VerticalAlignment="Center"
+                             Margin="0,0,20,0"/>
+                <RadioButton x:Name="FailLogsRadioButton"
+                             Content="FAIL Logs"
+                             GroupName="AnalyzeLogType"
+                             VerticalAlignment="Center"
+                             Margin="0,0,20,0"/>
+                <RadioButton x:Name="AllLogsRadioButton"
+                             Content="ALL Logs"
+                             GroupName="AnalyzeLogType"
+                             VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <Grid Grid.Row="2" Margin="0,0,0,10">
                 <TextBlock Text="Search Box"
                            FontSize="16"
                            FontWeight="SemiBold"
@@ -63,7 +89,7 @@
                            VerticalAlignment="Center"/>
             </Grid>
 
-            <DataGrid Grid.Row="2"
+            <DataGrid Grid.Row="3"
                       ItemsSource="{Binding Keys}"
                       AutoGenerateColumns="False"
                       CanUserAddRows="True"
@@ -88,7 +114,7 @@
                 </DataGrid.Columns>
             </DataGrid>
 
-            <StackPanel Grid.Row="3"
+            <StackPanel Grid.Row="4"
                         Orientation="Horizontal"
                         HorizontalAlignment="Center"
                         Margin="0,15,0,0">
