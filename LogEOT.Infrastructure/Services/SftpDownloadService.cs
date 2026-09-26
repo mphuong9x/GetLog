@@ -1,297 +1,243 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
+using System.Collections.Concurrent;
+using System.Diagnostics;
 using LogEOT.Core.Models;
-using WinSCP;
 
 namespace LogEOT.Infrastructure.Services;
 
 public class SftpDownloadService
 {
     private readonly SftpConfig _config;
+    private readonly Func<ISftpLogSession> _createSession;
+    private int _hadErrors;
+    private int _scanWarningCount;
+    private int _downloadFailureCount;
+    public bool LastRunHadErrors => Volatile.Read(ref _hadErrors) != 0;
+    public int LastScanWarningCount => Volatile.Read(ref _scanWarningCount);
+    public int LastDownloadFailureCount => Volatile.Read(ref _downloadFailureCount);
 
     public SftpDownloadService(SftpConfig? config = null)
+        : this(config ?? new SftpConfig(), () => new SftpLogSession()) { }
+
+    internal SftpDownloadService(SftpConfig config, Func<ISftpLogSession> createSession)
     {
-        _config = config ?? new SftpConfig();
+        _config = config;
+        _createSession = createSession;
     }
 
-    public async Task<int> DownloadLogsAsync(
-        List<SftpServer> servers,
-        string localRoot,
-        ScanOptions options,
-        Action<string> logMessage,
-        Action<int, int> progressUpdate)
+    public async Task<int> DownloadLogsAsync(List<SftpServer> servers, string localRoot,
+        ScanOptions options, Action<string> logMessage, Action<int, int> progressUpdate)
     {
-        return await Task.Run(() =>
+        Interlocked.Exchange(ref _hadErrors, 0);
+        Interlocked.Exchange(ref _scanWarningCount, 0);
+        Interlocked.Exchange(ref _downloadFailureCount, 0);
+        return await Task.Run(async () =>
         {
-            int grandTotal = 0;
             Directory.CreateDirectory(localRoot);
+            var rules = new LogDownloadRules(options);
+            int grandTotal = 0;
 
+            // Servers retain their selected order: their output paths can overlap.
             foreach (var server in servers)
             {
-                var host = server.Host;
-                logMessage($"--- Processing Server {host} ---");
-
-                var sessionOptions = new SessionOptions
-                {
-                    Protocol = Protocol.Sftp,
-                    HostName = host,
-                    PortNumber = _config.Port,
-                    UserName = string.IsNullOrEmpty(server.UserName) ? _config.UserName : server.UserName,
-                    Password = string.IsNullOrEmpty(server.Password) ? _config.Password : server.Password,
-                    SshHostKeyPolicy = SshHostKeyPolicy.GiveUpSecurityAndAcceptAny
-                };
-
-                var allFiles = new List<string>();
-
-                logMessage($"Scanning on {host}...");
-
-                try
-                {
-                    using (var session = new Session { ExecutablePath = WinScpRuntime.ExecutablePath })
-                    {
-                        session.Open(sessionOptions);
-
-                        foreach (var root in _config.Roots)
-                        {
-                            string scanPath = string.IsNullOrWhiteSpace(options.Model)
-                                ? root
-                                : $"{root}/{options.Model}";
-                            if (!DirExists(session, scanPath))
-                                continue;
-
-                            Walk(session, scanPath, options, allFiles, logMessage);
-                        }
-                    }
-                }
+                var elapsed = Stopwatch.StartNew();
+                logMessage($"--- Processing Server {server.Host} ---");
+                logMessage($"Scanning on {server.Host}...");
+                using var primary = _createSession();
+                try { primary.Open(server, _config); }
                 catch (Exception ex)
                 {
-                    logMessage($"Error scanning {host}: {ex.Message}");
+                    MarkScanWarning();
+                    logMessage($"Error connecting to {server.Host}: {ex.Message}");
                     continue;
                 }
 
-                logMessage($"Found {allFiles.Count} files on {host}");
-                if (allFiles.Count == 0) continue;
-
-                var sessions = new List<Session>();
-                int workerCount = Math.Min(Environment.ProcessorCount, 10);
-                //int workerCount = 7;
-
-                for (int i = 0; i < workerCount; i++)
+                var scanClock = Stopwatch.StartNew();
+                var branches = new List<ScanBranch>();
+                foreach (var root in _config.Roots)
                 {
+                    string path = string.IsNullOrWhiteSpace(options.Model) ? root : $"{root}/{options.Model}";
                     try
                     {
-                        var s = new Session { ExecutablePath = WinScpRuntime.ExecutablePath };
-                        s.Open(sessionOptions);
-                        sessions.Add(s);
+                        // List each root once. Keep branch slots in listing order,
+                        // then scan them independently without changing merge order.
+                        foreach (var item in primary.ListDirectory(path))
+                        {
+                            if (item.Name is "." or "..") continue;
+                            if (item.IsDirectory)
+                            {
+                                if (rules.VisitDirectory(path, item.Name))
+                                    branches.Add(new ScanBranch(path + "/" + item.Name));
+                            }
+                            else if (rules.MatchFile(item.Name))
+                            {
+                                var branch = new ScanBranch(null);
+                                branch.Files.Add(path + "/" + item.Name);
+                                branches.Add(branch);
+                            }
+                        }
                     }
                     catch (Exception ex)
                     {
-                        logMessage($"Error opening worker session on {host}: {ex.Message}");
+                        MarkScanWarning();
+                        logMessage($"Warning: Could not access {server.Host}:{path}: {ex.Message}");
                     }
                 }
 
-                if (sessions.Count == 0)
+                var scanQueue = new ConcurrentQueue<ScanBranch>(branches.Where(branch => branch.Path != null));
+                await RunWorkers(primary, server, Math.Min(scanQueue.Count, Math.Clamp(_config.ScanWorkers, 1, 8)),
+                    () => scanQueue.IsEmpty, session =>
+                    {
+                        while (scanQueue.TryDequeue(out var branch))
+                            Walk(session, branch.Path!, branch.Files, rules, logMessage);
+                    }, logMessage);
+
+                var allFiles = branches.SelectMany(branch => branch.Files).ToList();
+                scanClock.Stop();
+                logMessage($"Found {allFiles.Count} files on {server.Host} (scan {scanClock.Elapsed.TotalSeconds:F1}s)");
+                if (allFiles.Count == 0) continue;
+
+                int done = 0, errors = 0;
+                var failedFiles = new ConcurrentQueue<string>();
+                var groups = new Dictionary<string, DownloadGroup>(StringComparer.OrdinalIgnoreCase);
+                foreach (string remote in allFiles)
                 {
-                    logMessage($"Could not open any sessions for {host}. Skipping download.");
-                    continue;
+                    try
+                    {
+                        string directory = rules.LocalDirectory(localRoot, remote);
+                        string target = Path.GetFullPath(Path.Combine(directory, Path.GetFileName(remote)));
+                        if (!groups.TryGetValue(target, out var group))
+                            groups.Add(target, group = new DownloadGroup(directory));
+                        group.Files.Add(remote);
+                    }
+                    catch (Exception ex) { RecordFailure(remote, ex); }
                 }
 
-                int done = 0;
-                int total = allFiles.Count;
-                int errors = 0;
-                var failedFiles = new System.Collections.Concurrent.ConcurrentBag<string>();
+                var downloadQueue = new ConcurrentQueue<DownloadGroup>(groups.Values);
+                var progressGate = new object();
+                long lastProgress = 0;
+                logMessage($"Downloading from {server.Host}...");
+                ReportProgress(true);
 
-                logMessage($"Downloading from {host}...");
-                progressUpdate(0, total);
-
-                int currentWorkers = sessions.Count;
-
-                var tasks = new Task[currentWorkers];
-                for (int w = 0; w < currentWorkers; w++)
-                {
-                    int workerIndex = w;
-                    tasks[w] = Task.Run(() =>
+                await RunWorkers(primary, server,
+                    Math.Min(downloadQueue.Count, Math.Clamp(_config.DownloadWorkers, 1, 10)),
+                    () => downloadQueue.IsEmpty, session =>
                     {
-                        var session = sessions[workerIndex];
-                        for (int i = workerIndex; i < allFiles.Count; i += currentWorkers)
+                        var createdDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        while (downloadQueue.TryDequeue(out var group))
                         {
-                            try
+                            // Colliding filenames are serialized in scan order while
+                            // independent destinations are balanced across workers.
+                            foreach (string remote in group.Files)
                             {
-                                string remote = allFiles[i];
-                                string localDir;
-
-                                if (options.KeepRootFolder)
+                                try
                                 {
-                                    string? remoteDirName = Path.GetDirectoryName(remote);
-                                    string relativeDir = (remoteDirName ?? "").Replace("\\", "/").TrimStart('/');
-                                    localDir = Path.Combine(localRoot, relativeDir);
+                                    if (!createdDirectories.Contains(group.Directory))
+                                    {
+                                        Directory.CreateDirectory(group.Directory);
+                                        createdDirectories.Add(group.Directory);
+                                    }
+                                    session.Download(remote, group.Directory);
+                                    Interlocked.Increment(ref done);
                                 }
-                                else
-                                {
-                                    string model = string.IsNullOrWhiteSpace(options.Model)
-                                        ? ExtractModel(remote)
-                                        : options.Model;
-                                    string station = ExtractStation(remote);
-                                    localDir = Path.Combine(localRoot, model, station);
-                                }
-
-                                Directory.CreateDirectory(localDir);
-                                session.GetFileToDirectory(remote, localDir);
-
-                                int count = Interlocked.Increment(ref done);
-                                progressUpdate(count, total);
-                            }
-                            catch (Exception ex)
-                            {
-                                Interlocked.Increment(ref errors);
-                                failedFiles.Add($"{allFiles[i]} — {ex.Message}");
+                                catch (Exception ex) { RecordFailure(remote, ex); }
+                                ReportProgress(false);
                             }
                         }
-                    });
-                }
+                    }, logMessage);
 
-                Task.WaitAll(tasks);
+                ReportProgress(true);
                 grandTotal += done;
+                logMessage($"DONE on {server.Host}. Downloaded {done}/{allFiles.Count} files." +
+                    (errors > 0 ? $" ({errors} failed)" : "") + $" Total {elapsed.Elapsed.TotalSeconds:F1}s.");
+                foreach (var failure in failedFiles) logMessage($"    x {failure}");
+                if (errors > 10) logMessage($"    ... and {errors - 10} more.");
 
-                foreach (var s in sessions)
-                    s.Dispose();
-
-                logMessage($"DONE on {host}. Downloaded {done}/{total} files." + (errors > 0 ? $" ({errors} failed)" : ""));
-
-                if (errors > 0)
+                void RecordFailure(string remote, Exception exception)
                 {
-                    logMessage($"  {errors} file(s) failed on {host} (showing up to 10):");
-                    int shown = 0;
-                    foreach (var f in failedFiles)
-                    {
-                        logMessage($"    x {f}");
-                        if (++shown >= 10) break;
-                    }
-                    if (errors > shown)
-                        logMessage($"    ... and {errors - shown} more.");
+                    MarkDownloadFailure();
+                    if (Interlocked.Increment(ref errors) <= 10)
+                        failedFiles.Enqueue($"{remote} — {exception.Message}");
                 }
 
-                progressUpdate(total, total);
+                void ReportProgress(bool force)
+                {
+                    lock (progressGate)
+                    {
+                        long now = Environment.TickCount64;
+                        if (!force && now - lastProgress < 100) return;
+                        lastProgress = now;
+                        progressUpdate(Volatile.Read(ref done), allFiles.Count);
+                    }
+                }
             }
-
             return grandTotal;
         });
     }
 
-    static void Walk(Session session, string path, ScanOptions options, List<string> files, Action<string>? logMessage = null)
+    private async Task RunWorkers(ISftpLogSession primary, SftpServer server, int count,
+        Func<bool> isEmpty, Action<ISftpLogSession> consume, Action<string> logMessage)
+    {
+        if (count == 0) return;
+        var workers = Enumerable.Range(1, count - 1).Select(_ => Task.Run(() =>
+        {
+            if (isEmpty()) return;
+            // Dispose even if opening fails; primary can drain any remaining work.
+            using var session = _createSession();
+            try { session.Open(server, _config); }
+            catch (Exception ex)
+            {
+                logMessage($"Warning: Could not open extra connection on {server.Host}: {ex.Message}");
+                return;
+            }
+            consume(session);
+        })).ToList();
+        // Reuse the open scan connection as worker 1, avoiding another handshake.
+        workers.Add(Task.Run(() => consume(primary)));
+        await Task.WhenAll(workers);
+    }
+
+    private void Walk(ISftpLogSession session, string path, List<string> files,
+        LogDownloadRules rules, Action<string> logMessage)
     {
         try
         {
-            var list = session.ListDirectory(path);
-            var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
-            int depth = parts.Length;
-
-            foreach (var item in list.Files)
+            foreach (var item in session.ListDirectory(path))
             {
-                if (item.Name == "." || item.Name == "..")
-                    continue;
-
+                if (item.Name is "." or "..") continue;
                 string full = path + "/" + item.Name;
-
                 if (item.IsDirectory)
                 {
-                    if (depth == 3)
-                    {
-                        if (!string.IsNullOrEmpty(options.MoFilter) && !item.Name.Equals(options.MoFilter, StringComparison.OrdinalIgnoreCase))
-                            continue;
-                    }
-                    else if (depth == 5)
-                    {
-                        if (options.StartDate.HasValue || options.EndDate.HasValue)
-                        {
-                            if (DateTime.TryParseExact(item.Name, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out DateTime folderDate))
-                            {
-                                if (options.StartDate.HasValue && folderDate.Date < options.StartDate.Value.Date) continue;
-                                if (options.EndDate.HasValue && folderDate.Date > options.EndDate.Value.Date) continue;
-                            }
-                        }
-                    }
-
-                    Walk(session, full, options, files, logMessage);
+                    if (rules.VisitDirectory(path, item.Name)) Walk(session, full, files, rules, logMessage);
                 }
-                else
-                {
-                    if (IsValidExt(item.Name))
-                    {
-                        bool isPass = item.Name.StartsWith("PASS", StringComparison.OrdinalIgnoreCase);
-                        bool isFail = item.Name.StartsWith("FAIL", StringComparison.OrdinalIgnoreCase);
-
-                        if (!isPass && !isFail)
-                            continue;
-
-                        if ((options.Pass && isPass) || (options.Fail && isFail))
-                        {
-                            if (options.MacList is { Count: > 0 })
-                            {
-                                bool hasMac = false;
-                                foreach (var mac in options.MacList)
-                                {
-                                    if (item.Name.IndexOf(mac, StringComparison.OrdinalIgnoreCase) >= 0)
-                                    {
-                                        hasMac = true;
-                                        break;
-                                    }
-                                }
-                                if (!hasMac) continue;
-                            }
-
-                            files.Add(full);
-                        }
-                    }
-                }
+                else if (rules.MatchFile(item.Name)) files.Add(full);
             }
         }
         catch (Exception ex)
         {
-            logMessage?.Invoke($"Warning: Could not access {path}: {ex.Message}");
+            MarkScanWarning();
+            logMessage($"Warning: Could not access {path}: {ex.Message}");
         }
     }
 
-    static bool IsValidExt(string name)
+    private void MarkError() => Interlocked.Exchange(ref _hadErrors, 1);
+    private void MarkScanWarning()
     {
-        return name.EndsWith(".log", StringComparison.OrdinalIgnoreCase)
-            || name.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)
-            || name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase);
+        Interlocked.Increment(ref _scanWarningCount);
+        MarkError();
     }
-
-    static bool DirExists(Session session, string path)
+    private void MarkDownloadFailure()
     {
-        try
-        {
-            session.ListDirectory(path);
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
+        Interlocked.Increment(ref _downloadFailureCount);
+        MarkError();
     }
-
-    static string ExtractStation(string remote)
+    private sealed class ScanBranch(string? path)
     {
-        var parts = remote.Split('/', StringSplitOptions.RemoveEmptyEntries);
-
-        if (parts.Length >= 3)
-            return parts[2];
-
-        return "UNKNOWN";
+        public string? Path { get; } = path;
+        public List<string> Files { get; } = [];
     }
-
-    static string ExtractModel(string remote)
+    private sealed class DownloadGroup(string directory)
     {
-        var parts = remote.Split('/', StringSplitOptions.RemoveEmptyEntries);
-
-        if (parts.Length >= 2)
-            return parts[1];
-
-        return "UNKNOWN_MODEL";
+        public string Directory { get; } = directory;
+        public List<string> Files { get; } = [];
     }
 }

@@ -174,7 +174,7 @@ public partial class DownloadLogsView : System.Windows.Controls.UserControl
             try
             {
                 macSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                var lines = System.IO.File.ReadAllLines(macFile);
+                var lines = System.IO.File.ReadLines(macFile);
                 foreach (var line in lines)
                 {
                     var mac = line.Trim();
@@ -252,12 +252,8 @@ public partial class DownloadLogsView : System.Windows.Controls.UserControl
             },
             (done, total) =>
             {
-                // Throttle: chỉ cập nhật UI mỗi ~1% (hoặc khi hoàn tất) để tránh dồn Dispatcher
-                // khi tải rất nhiều file nhỏ từ tối đa 10 luồng song song.
-                int step = total > 200 ? total / 100 : 1;
-                if (done != total && done % step != 0) return;
-
-                // BeginInvoke: không chặn luồng tải; Math.Max tránh thanh tiến độ giật lùi khi cập nhật out-of-order.
+                // The service serializes progress and limits it to 10 updates/second.
+                // Always display its final count, including partially failed downloads.
                 dispatcher.BeginInvoke(() =>
                 {
                     BusyStatusText.Text = "Đang tải logs, vui lòng chờ...";
@@ -282,7 +278,16 @@ public partial class DownloadLogsView : System.Windows.Controls.UserControl
                 }
             }
 
-            _notify?.Invoke($"Download complete — {downloaded} log(s) downloaded", true);
+            int scanWarnings = service.LastScanWarningCount;
+            int downloadFailures = service.LastDownloadFailureCount;
+            string completionMessage = (scanWarnings, downloadFailures) switch
+            {
+                (> 0, > 0) => $"Downloaded {downloaded} log(s); {downloadFailures} download failure(s) and {scanWarnings} scan warning(s). Search results may be incomplete. See log details.",
+                (> 0, 0) => $"Downloaded {downloaded} log(s); {scanWarnings} scan warning(s), so search results may be incomplete. See log details.",
+                (0, > 0) => $"Downloaded {downloaded} log(s); {downloadFailures} download failure(s). See log details.",
+                _ => $"Download complete — {downloaded} log(s) downloaded"
+            };
+            _notify?.Invoke(completionMessage, !service.LastRunHadErrors);
         }
         catch (Exception ex)
         {
