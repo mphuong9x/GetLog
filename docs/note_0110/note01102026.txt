@@ -1,0 +1,35 @@
+https://foxconn.webex.com/foxconn-sc/j.php?MTID=m2057e7143bcc361972846423c8d1edc4
+
+
+25165600960
+123456
+
+
+/software page:
+Modal Create software package:
+Ô input của description: giảm 50% độ rộng
+Assignment approval policy: check selector
+When selected, station assignments remain pending until this policy is approved. (check content againt)
+Off by default — safe for production. Turn on only when removing the assignment should wipe the app from PCs. : remove, và chuyển phần này thay cho nội dung khi hover chuột vào dấu chấm hỏi của Auto-remove on unassign (GAP-6: when on, removing this package's station assignment makes each PC uninstall it (delete files). Off keeps files in place.)
+Tự động chạy sau khi triển khai: chuyển sang english , phần giải thích cho chức năng này ở dấu chấm hỏi cũng đổi sang english.
+Off by default — a running test is never interrupted.: bỏ đi
+Sau khi tinh chỉnh nội dung hiển thị thì sắp xếp, thiết kế lại cho cân đối, đẹp.
+
+
+Press "+ New version" -> Modal Create software version:
+"Version code is generated automatically (format dd.MM.yyyy_NN)." : bỏ đi
+Bỏ phần Changelog
+Sau khi tinh chỉnh nội dung hiển thị như trên, tiến hành sắp xếp, điều chỉnh desisgn cho đẹp và chuyên nghiệp hơn.
+
+Version Actions:
+- Detail: Package details modal: Launche setting:
+"The agent runs this file after installing this version. Leave empty for a download-only package." : bỏ đi
+Advanced options: bỏ phần health check url
+Phân tách rõ hơn phần thông tin package , vd như hiện tại đang là 01.10.2026_01 · 2,239 files · 682 MB , hơi khó nhìn
+
+- Config parameters:
+Config parameters modal:
+Declare the config parameters by hand, or copy the declarations from another package.: bỏ phần text này đi, có thể thêm vào dạng dấu hỏi chú thích khi user hover chuột.
+Để cụm Copy declarations from another package (every file at once) và các selector tương ứng của nó thành dạng có thể thu gọn lại khi cần để tránh rối mắt.
+"Model: locked — it only changes by shipping a new program (the BOM change wizard). Use this for BOM, SKU and anything that identifies the product." :bỏ đi
+Trong bảng key value bên dưới: bỏ cột label, cột Mirrors, còn cột Approval tạm thời chuyển sang dạng disable, khi di chuột vào các ô check box ở cột này thì hiện dòng chữ báo tính năng đang thử nghiệm.
