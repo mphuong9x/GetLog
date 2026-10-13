@@ -1,0 +1,14 @@
+﻿{
+    "IdempotentSchemaAppliedTwice":  true,
+    "MigrationHead":  "20260906090000_BindTusSession",
+    "MigrationCount":  48,
+    "BackupRestoreSucceeded":  true,
+    "BackupRestoreSeconds":  2.543,
+    "ReleaseProductionReadyStatus":  200,
+    "ReleaseProductionReadyDatabase":  "Available",
+    "MetricsAnonymousStatus":  200,
+    "MissingLatestMigrationReadyStatus":  200,
+    "MissingLatestMigrationReadyDatabase":  "Available",
+    "MissingTusColumn":  true,
+    "PreservedStaleHead":  "20260902070533_AddProductionSupportReporter"
+}

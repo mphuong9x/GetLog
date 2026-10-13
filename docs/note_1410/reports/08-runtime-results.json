@@ -1,0 +1,29 @@
+[
+  {
+    "probe": "late-file-full-batches",
+    "freshCycles": 4,
+    "seenLate": false,
+    "lateAfterIdle": false,
+    "observed": "Late file aged out of 15-minute overlap before idle replay."
+  },
+  {
+    "probe": "out-of-order-metrics",
+    "latestSent": 200,
+    "stored": 100,
+    "CollectedAt": "2026-09-09T15:20:01.6048813+00:00"
+  },
+  {
+    "probe": "cross-source-basename",
+    "firstAccepted": 1,
+    "secondAccepted": 0,
+    "Duplicates": 1,
+    "storedSource": "NoSfc"
+  },
+  {
+    "probe": "mtime-as-tested-time",
+    "filenameTime": "2026-09-09 08:00:00 (offset unspecified)",
+    "fileModifiedAt": "2026-09-09T15:25:01.6048813+00:00",
+    "storedTestedAt": "2026-09-09T15:25:01.6048813+00:00",
+    "parsed": "Full"
+  }
+]

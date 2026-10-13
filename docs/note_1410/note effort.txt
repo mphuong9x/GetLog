@@ -1,0 +1,28 @@
+
+   Prompt                                          Effort
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  ━━━━━━━━━━━━━━━━
+   00 Architecture                                 high
+  ──────────────────────────────────────────────  ────────────────
+   01 Agent enrollment/control plane               xhigh
+  ──────────────────────────────────────────────  ────────────────
+   02 Station deployment job lifecycle             max
+  ──────────────────────────────────────────────  ────────────────
+   03 Upload/blob/release lifecycle                xhigh
+  ──────────────────────────────────────────────  ────────────────
+   04 Config/override/baseline                     xhigh
+  ──────────────────────────────────────────────  ────────────────
+   05 Agent OTA/self-update                        xhigh
+  ──────────────────────────────────────────────  ────────────────
+   06 Launcher IPC/process supervision             high
+  ──────────────────────────────────────────────  ────────────────
+   07 Production-support durable workflow          max
+  ──────────────────────────────────────────────  ────────────────
+   08 Test-result ingestion/monitoring             high
+  ──────────────────────────────────────────────  ────────────────
+   09 Identity/RBAC/approvals/frontend contract    xhigh
+  ──────────────────────────────────────────────  ────────────────
+   10 Server deploy/database/recovery              xhigh
+  ──────────────────────────────────────────────  ────────────────
+   11 Final synthesis                              max
+
+ ---> 00, 06, 08 medium ________ 01, 02, 05, 07, 09, 10 station PC, quyền truy cập, hoặc khả năng rollback.
