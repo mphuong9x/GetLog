@@ -32,7 +32,7 @@
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="Folder A:" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#334155"/>
                     <TextBox x:Name="FolderABox" Grid.Column="1" MinHeight="36" Margin="0,0,10,0" Tag="Select the first log folder..." IsReadOnly="True" VerticalContentAlignment="Center"/>
-                    <Button Grid.Column="2" Content="Browse" MinHeight="36" Background="#0067C0" Foreground="White" BorderThickness="0" Cursor="Hand" Click="BrowseA_Click"/>
+                    <Button Grid.Column="2" Content="Browse" MinHeight="36" Click="BrowseA_Click"/>
                 </Grid>
 
                 <Grid Margin="0,0,0,15">
@@ -43,7 +43,7 @@
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="Folder B:" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#334155"/>
                     <TextBox x:Name="FolderBBox" Grid.Column="1" MinHeight="36" Margin="0,0,10,0" Tag="Select the second log folder..." IsReadOnly="True" VerticalContentAlignment="Center"/>
-                    <Button Grid.Column="2" Content="Browse" MinHeight="36" Background="#0067C0" Foreground="White" BorderThickness="0" Cursor="Hand" Click="BrowseB_Click"/>
+                    <Button Grid.Column="2" Content="Browse" MinHeight="36" Click="BrowseB_Click"/>
                 </Grid>
 
                 <Grid Margin="0,0,0,0">
@@ -57,7 +57,7 @@
 
                 <Border Height="1" Background="#E2E8F0" Margin="0,15,0,15"/>
 
-                <Button Content="Compare MAC" Width="180" Height="40" Background="#0067C0" Foreground="White" BorderThickness="0" Cursor="Hand" Click="Compare_Click" HorizontalAlignment="Center" Margin="0,5,0,15"/>
+                <Button Content="Compare MAC" Width="180" Height="40" Click="Compare_Click" HorizontalAlignment="Center" Margin="0,5,0,15"/>
 
                 <TextBlock x:Name="SummaryText" TextAlignment="Center" FontSize="13" Foreground="#0F172A" TextWrapping="Wrap" LineHeight="20"/>
             </StackPanel>

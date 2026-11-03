@@ -14,66 +14,6 @@
             <Setter Property="Foreground" Value="#333333"/>
         </Style>
 
-        <Style TargetType="Button">
-            <Setter Property="FontFamily" Value="Segoe UI Semibold"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="Background" Value="#0067C0"/>
-            <Setter Property="Padding" Value="15,8"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                CornerRadius="6"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"/>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#1976D2"/>
-                </Trigger>
-                <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#005A9E"/>
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#BDBDBD"/>
-                    <Setter Property="Foreground" Value="#757575"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-        
-        <Style x:Key="OutlineButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#0067C0"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush" Value="#0067C0"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="6"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"/>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#E3F2FD"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
         <Style TargetType="DataGrid">
             <Setter Property="FontFamily" Value="Segoe UI"/>
             <Setter Property="FontSize" Value="14"/>
@@ -185,10 +125,6 @@
         <Button Grid.Row="0"
                 Content="UI - TE - EOT"
                 Height="54"
-                Style="{StaticResource OutlineButton}"
-                Background="White"
-                FontSize="20"
-                FontWeight="Bold"
                 Click="Home_Click"
                 ToolTip="Back to Home"/>
 
@@ -209,41 +145,17 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <Button Grid.Row="0" Grid.Column="0" Height="44" Width="150" Click="Nav_Pending_Click" Margin="0,0,10,10">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Download Logs" Foreground="White" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
+                <Button Grid.Row="0" Grid.Column="0" Height="44" Width="150" Click="Nav_Pending_Click" Margin="0,0,10,10" Content="Download Logs"/>
 
-                <Button Grid.Row="0" Grid.Column="1" Height="44" Width="150" Click="Analyze_Click" Margin="0,0,0,10">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Analyze Logs" Foreground="White" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
+                <Button Grid.Row="0" Grid.Column="1" Height="44" Width="150" Click="Analyze_Click" Margin="0,0,0,10" Content="Analyze Logs"/>
 
-                <Button Grid.Row="1" Grid.Column="0" Height="44" Width="150" Click="GetMac_Click" Margin="0,0,10,10">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Get MAC" Foreground="White" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
+                <Button Grid.Row="1" Grid.Column="0" Height="44" Width="150" Click="GetMac_Click" Margin="0,0,10,10" Content="Get MAC"/>
 
-                <Button Grid.Row="1" Grid.Column="1" Height="44" Width="150" Click="AudioLog_Click" Margin="0,0,0,10">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Audio Logs" Foreground="White" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
+                <Button Grid.Row="1" Grid.Column="1" Height="44" Width="150" Click="AudioLog_Click" Margin="0,0,0,10" Content="Audio Logs"/>
 
-                <Button Grid.Row="2" Grid.Column="0" Height="44" Width="150" Click="RemoveDuplicate_Click" Margin="0,0,10,0">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Remove Duplicate" Foreground="White" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
+                <Button Grid.Row="2" Grid.Column="0" Height="44" Width="150" Click="RemoveDuplicate_Click" Margin="0,0,10,0" Content="Remove Duplicate"/>
 
-                <Button Grid.Row="2" Grid.Column="1" Height="44" Width="150" Click="CompareMac_Click">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Compare MAC" Foreground="White" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
+                <Button Grid.Row="2" Grid.Column="1" Height="44" Width="150" Click="CompareMac_Click" Content="Compare MAC"/>
             </Grid>
 
             <Border Grid.Column="1"

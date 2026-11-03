@@ -42,18 +42,7 @@
                         Content="Browse"
                         Width="100"
                         Height="36"
-                        Background="#0067C0" 
-                        Foreground="White"
-                        BorderBrush="#0067C0"
-                        BorderThickness="1"
-                        Cursor="Hand"
-                        Click="Browse_Click">
-                    <Button.Resources>
-                        <Style TargetType="Border">
-                            <Setter Property="CornerRadius" Value="6"/>
-                        </Style>
-                    </Button.Resources>
-                </Button>
+                        Click="Browse_Click"/>
             </Grid>
 
             <StackPanel Grid.Row="1"
@@ -82,14 +71,29 @@
             </StackPanel>
 
             <Grid Grid.Row="2" Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
                 <TextBlock Text="Search Box"
                            FontSize="16"
                            FontWeight="SemiBold"
                            Foreground="#0F172A"
                            VerticalAlignment="Center"/>
+                <Button x:Name="SaveKeysButton" Grid.Column="1" Content="Save Keys"
+                        MinWidth="110" Height="36" Margin="12,0,10,0" Click="SaveKeys_Click"/>
+                <Button x:Name="LoadConfigButton" Grid.Column="2" Content="Load Keys"
+                        MinWidth="110" Height="36" Click="LoadConfig_Click"/>
+                <Button x:Name="ResetKeysButton" Grid.Column="3" Content="Reset Keys"
+                        MinWidth="110"
+                        Height="36"
+                        Click="Reset_Click"
+                        Margin="10,0,0,0"/>
             </Grid>
 
-            <DataGrid Grid.Row="3"
+            <DataGrid x:Name="KeysGrid" Grid.Row="3"
                       ItemsSource="{Binding Keys}"
                       AutoGenerateColumns="False"
                       CanUserAddRows="True"
@@ -118,50 +122,9 @@
                         Orientation="Horizontal"
                         HorizontalAlignment="Center"
                         Margin="0,15,0,0">
-                <Button Content="Reset Table"
-                        Width="150"
-                        Height="40"
-                        Click="Reset_Click"
-                        Margin="0,0,12,0">
-                    <Button.Style>
-                        <Style TargetType="Button">
-                            <Setter Property="Background" Value="White"/>
-                            <Setter Property="Foreground" Value="#0067C0"/>
-                            <Setter Property="BorderBrush" Value="#0067C0"/>
-                            <Setter Property="BorderThickness" Value="1"/>
-                            <Setter Property="Cursor" Value="Hand"/>
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border x:Name="ButtonBorder"
-                                                Background="{TemplateBinding Background}"
-                                                BorderBrush="{TemplateBinding BorderBrush}"
-                                                BorderThickness="{TemplateBinding BorderThickness}"
-                                                CornerRadius="6">
-                                            <ContentPresenter HorizontalAlignment="Center"
-                                                              VerticalAlignment="Center"/>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="ButtonBorder" Property="Background" Value="#E3F2FD"/>
-                                            </Trigger>
-                                            <Trigger Property="IsPressed" Value="True">
-                                                <Setter TargetName="ButtonBorder" Property="Background" Value="#BAE6FD"/>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </Style>
-                    </Button.Style>
-                </Button>
                 <Button Content="Run"
                         Width="180"
                         Height="40"
-                        Background="#0067C0"
-                        Foreground="White"
-                        BorderThickness="0"
-                        Cursor="Hand"
                         Click="Run_Click"/>
             </StackPanel>
         </Grid>

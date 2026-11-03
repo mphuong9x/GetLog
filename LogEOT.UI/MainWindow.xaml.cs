@@ -68,7 +68,12 @@ public partial class MainWindow : Window
             if (_analyzeView == null)
             {
                 _analyzeView = new Views.AnalyzeLogsView(LogMessage);
-                _analyzeView.RunRequested += async (s, ev) => await RunAnalysisAndExportAsync();
+                _analyzeView.RunRequested += async (s, ev) =>
+                {
+                    _analyzeView.SetConfigButtonsEnabled(false);
+                    try { await RunAnalysisAndExportAsync(); }
+                    finally { _analyzeView.SetConfigButtonsEnabled(true); }
+                };
                 _analyzeView.ResetRequested += (s, ev) =>
                 {
                     ResetAnalyzeKeys();

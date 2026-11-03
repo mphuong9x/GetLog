@@ -31,6 +31,27 @@ public partial class DownloadLogsView : System.Windows.Controls.UserControl
         }
     }
 
+    private void LocalCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        bool local = LocalCheckBox.IsChecked == true;
+        if (LocalFolderPanel != null)
+            LocalFolderPanel.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
+        if (ServerPanel != null)
+            ServerPanel.IsEnabled = !local;
+    }
+
+    private void BrowseLocal_Click(object sender, RoutedEventArgs e)
+    {
+        using var dialog = new WinForms.FolderBrowserDialog
+        {
+            Description = "Select the folder to search for logs (including all subfolders)",
+            UseDescriptionForTitle = true,
+            SelectedPath = LocalFolderBox.Text
+        };
+        if (dialog.ShowDialog() == WinForms.DialogResult.OK)
+            LocalFolderBox.Text = dialog.SelectedPath;
+    }
+
     private void AddServer_Click(object sender, RoutedEventArgs e)
     {
         var input = Microsoft.VisualBasic.Interaction.InputBox("Enter server IP address:", "Add Server", "192.168.240.");
@@ -122,6 +143,8 @@ public partial class DownloadLogsView : System.Windows.Controls.UserControl
         var endDate = EndDatePicker.SelectedDate;
         bool pass = PassCheckBox.IsChecked ?? false;
         bool fail = FailCheckBox.IsChecked ?? false;
+        bool local = LocalCheckBox.IsChecked == true;
+        var localFolder = LocalFolderBox.Text?.Trim() ?? "";
 
         var selectedServers = new List<SftpServer>();
         foreach (var child in ServerPanel.Children)
@@ -134,9 +157,15 @@ public partial class DownloadLogsView : System.Windows.Controls.UserControl
             }
         }
 
-        if (selectedServers.Count == 0)
+        if (!local && selectedServers.Count == 0)
         {
             Log("Please select at least one server.");
+            return;
+        }
+
+        if (local && !System.IO.Directory.Exists(localFolder))
+        {
+            Log("Please select a valid local folder.");
             return;
         }
 
@@ -144,7 +173,7 @@ public partial class DownloadLogsView : System.Windows.Controls.UserControl
 
         if (string.IsNullOrEmpty(model) && !listMac)
         {
-            Log("Model is required for SFTP Download.");
+            Log("Model is required for log download.");
             return;
         }
 
@@ -213,7 +242,8 @@ public partial class DownloadLogsView : System.Windows.Controls.UserControl
                     MessageBoxImage.Warning);
             }
 
-            Log("Starting SFTP log download...");
+            Log(local ? "Starting local log download..." : "Starting SFTP log download...");
+            if (local) Log($"- Local Folder: {localFolder}");
             Log($"- Output Dir: {outputDir}");
             Log(string.IsNullOrEmpty(model) ? "- Model: All models" : $"- Model: {model}");
             if (!string.IsNullOrEmpty(mo)) Log($"- MO: {mo}");
@@ -236,10 +266,8 @@ public partial class DownloadLogsView : System.Windows.Controls.UserControl
                 MacList = macSet
             };
 
-            var service = new SftpDownloadService();
             var dispatcher = System.Windows.Application.Current.Dispatcher;
-            int downloaded = await service.DownloadLogsAsync(selectedServers, outputDir, options,
-            msg =>
+            Action<string> logMessage = msg =>
             {
                 dispatcher.BeginInvoke(() =>
                 {
@@ -249,8 +277,8 @@ public partial class DownloadLogsView : System.Windows.Controls.UserControl
                     else if (msg.StartsWith("Downloading from", StringComparison.OrdinalIgnoreCase))
                         BusyStatusText.Text = "Đang tải logs, vui lòng chờ...";
                 });
-            },
-            (done, total) =>
+            };
+            Action<int, int> progressUpdate = (done, total) =>
             {
                 // The service serializes progress and limits it to 10 updates/second.
                 // Always display its final count, including partially failed downloads.
@@ -262,7 +290,23 @@ public partial class DownloadLogsView : System.Windows.Controls.UserControl
                         DownloadProgress.Value = done;
                     ProgressText.Text = $"{done}/{total}";
                 });
-            });
+            };
+
+            int downloaded, scanWarnings, downloadFailures;
+            if (local)
+            {
+                var service = new LocalLogDownloadService();
+                downloaded = await service.DownloadLogsAsync(localFolder, outputDir, options, logMessage, progressUpdate);
+                scanWarnings = service.LastScanWarningCount;
+                downloadFailures = service.LastDownloadFailureCount;
+            }
+            else
+            {
+                var service = new SftpDownloadService();
+                downloaded = await service.DownloadLogsAsync(selectedServers, outputDir, options, logMessage, progressUpdate);
+                scanWarnings = service.LastScanWarningCount;
+                downloadFailures = service.LastDownloadFailureCount;
+            }
 
             bool removeDup = RemoveDuplicateCheckBox.IsChecked ?? false;
             if (removeDup && !string.IsNullOrEmpty(outputDir) && System.IO.Directory.Exists(outputDir))
@@ -270,7 +314,7 @@ public partial class DownloadLogsView : System.Windows.Controls.UserControl
                 try
                 {
                     Log("Scanning for duplicate logs...");
-                    await Task.Run(() => RemoveDuplicateLogs(outputDir));
+                    await Task.Run(() => RemoveDuplicateLogs(outputDir, local ? localFolder : null));
                 }
                 catch (Exception ex)
                 {
@@ -278,8 +322,6 @@ public partial class DownloadLogsView : System.Windows.Controls.UserControl
                 }
             }
 
-            int scanWarnings = service.LastScanWarningCount;
-            int downloadFailures = service.LastDownloadFailureCount;
             string completionMessage = (scanWarnings, downloadFailures) switch
             {
                 (> 0, > 0) => $"Downloaded {downloaded} log(s); {downloadFailures} download failure(s) and {scanWarnings} scan warning(s). Search results may be incomplete. See log details.",
@@ -287,7 +329,7 @@ public partial class DownloadLogsView : System.Windows.Controls.UserControl
                 (0, > 0) => $"Downloaded {downloaded} log(s); {downloadFailures} download failure(s). See log details.",
                 _ => $"Download complete — {downloaded} log(s) downloaded"
             };
-            _notify?.Invoke(completionMessage, !service.LastRunHadErrors);
+            _notify?.Invoke(completionMessage, scanWarnings == 0 && downloadFailures == 0);
         }
         catch (Exception ex)
         {
@@ -300,13 +342,25 @@ public partial class DownloadLogsView : System.Windows.Controls.UserControl
         }
     }
 
-    private void RemoveDuplicateLogs(string rootDir)
+    private void RemoveDuplicateLogs(string rootDir, string? excludedSourceDir = null)
     {
         int removed = 0;
         try
         {
-            var directories = new List<string>(System.IO.Directory.GetDirectories(rootDir, "*", System.IO.SearchOption.AllDirectories));
-            directories.Insert(0, rootDir);
+            string? source = excludedSourceDir == null ? null
+                : System.IO.Path.TrimEndingDirectorySeparator(System.IO.Path.GetFullPath(excludedSourceDir));
+            var directories = new List<string>();
+            var pending = new Stack<string>();
+            pending.Push(rootDir);
+            while (pending.TryPop(out var directory))
+            {
+                if (source != null && System.IO.Path.TrimEndingDirectorySeparator(System.IO.Path.GetFullPath(directory))
+                    .Equals(source, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                directories.Add(directory);
+                foreach (string child in System.IO.Directory.GetDirectories(directory))
+                    pending.Push(child);
+            }
 
             foreach (var dir in directories)
             {

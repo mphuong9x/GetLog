@@ -28,13 +28,29 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="100"/>
                         <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="Servers:" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#334155"/>
                     <StackPanel x:Name="ServerPanel" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                         <CheckBox x:Name="Server20CheckBox" Content="192.168.240.20" Margin="0,0,15,0" VerticalAlignment="Center"/>
                         <CheckBox x:Name="Server21CheckBox" Content="192.168.240.21" Margin="0,0,15,0" VerticalAlignment="Center"/>
-                        <Button x:Name="AddServerButton" Content="+" Width="28" Height="24" Padding="0" FontSize="16" FontWeight="Bold" Background="#0067C0" Foreground="White" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center" Click="AddServer_Click" ToolTip="Add a server address (this session only)"/>
+                        <Button x:Name="AddServerButton" Content="+" Width="28" Height="24" Padding="0" VerticalAlignment="Center" Click="AddServer_Click" ToolTip="Add a server address (this session only)"/>
                     </StackPanel>
+                    <CheckBox x:Name="LocalCheckBox" Grid.Column="2" Content="Local" Margin="15,0,0,0"
+                              HorizontalAlignment="Right" VerticalAlignment="Center"
+                              Checked="LocalCheckBox_Changed" Unchecked="LocalCheckBox_Changed"/>
+                </Grid>
+
+                <Grid x:Name="LocalFolderPanel" Margin="0,0,0,15" Visibility="Collapsed">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="100"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="90"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Local Folder:" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#334155"/>
+                    <TextBox x:Name="LocalFolderBox" Grid.Column="1" MinHeight="36" Margin="0,0,10,0"
+                             Tag="Select source folder..." VerticalContentAlignment="Center"/>
+                    <Button Grid.Column="2" Content="Browse" MinHeight="36" Click="BrowseLocal_Click"/>
                 </Grid>
 
                 <Grid Margin="0,0,0,0">
@@ -45,7 +61,7 @@
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="Output Dir:" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#334155"/>
                     <TextBox x:Name="OutputDirBox" Grid.Column="1" MinHeight="36" Margin="0,0,10,0" Tag="Enter output folder..." VerticalContentAlignment="Center"/>
-                    <Button Grid.Column="2" Content="Browse" MinHeight="36" Background="#0067C0" Foreground="White" BorderThickness="0" Cursor="Hand" Click="Browse_Click"/>
+                    <Button Grid.Column="2" Content="Browse" MinHeight="36" Click="Browse_Click"/>
                 </Grid>
 
                 <Border Height="1" Background="#E2E8F0" Margin="0,15,0,15"/>
@@ -101,11 +117,11 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="MAC List:" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#334155"/>
                         <TextBox x:Name="MacFileBox" Grid.Column="1" MinHeight="36" Margin="0,0,10,0" Tag="Select MAC List file (.txt)..." IsReadOnly="True" VerticalContentAlignment="Center"/>
-                        <Button Grid.Column="2" Content="Browse" MinHeight="36" Background="#0067C0" Foreground="White" BorderThickness="0" Cursor="Hand" Click="BrowseMac_Click"/>
+                        <Button Grid.Column="2" Content="Browse" MinHeight="36" Click="BrowseMac_Click"/>
                     </Grid>
                 </StackPanel>
                 
-                <Button x:Name="DownloadButton" Content="Start Download" Width="180" Height="40" Background="#0067C0" Foreground="White" BorderThickness="0" Cursor="Hand" Click="Download_Click" HorizontalAlignment="Center" Margin="0,10,0,12"/>
+                <Button x:Name="DownloadButton" Content="Start Download" Width="180" Height="40" Click="Download_Click" HorizontalAlignment="Center" Margin="0,10,0,12"/>
 
                 <Border x:Name="BusyStatusBorder"
                         Visibility="Collapsed"

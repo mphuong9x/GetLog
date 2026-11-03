@@ -32,7 +32,7 @@
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="Input Dir:" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#334155"/>
                     <TextBox x:Name="InputDirBox" Grid.Column="1" MinHeight="36" Margin="0,0,10,0" Tag="Select folder containing log files..." IsReadOnly="True" VerticalContentAlignment="Center"/>
-                    <Button Grid.Column="2" Content="Browse" MinHeight="36" Background="#0067C0" Foreground="White" BorderThickness="0" Cursor="Hand" Click="Browse_Click"/>
+                    <Button Grid.Column="2" Content="Browse" MinHeight="36" Click="Browse_Click"/>
                 </Grid>
 
                 <Grid Margin="0,0,0,0">
@@ -46,7 +46,7 @@
 
                 <Border Height="1" Background="#E2E8F0" Margin="0,15,0,15"/>
 
-                <Button Content="Remove Duplicate" Width="180" Height="40" Background="#0067C0" Foreground="White" BorderThickness="0" Cursor="Hand" Click="Remove_Click" HorizontalAlignment="Center" Margin="0,5,0,15"/>
+                <Button Content="Remove Duplicate" Width="180" Height="40" Click="Remove_Click" HorizontalAlignment="Center" Margin="0,5,0,15"/>
 
                 <TextBlock x:Name="SummaryText" TextAlignment="Center" FontSize="13" Foreground="#0F172A" TextWrapping="Wrap"/>
             </StackPanel>

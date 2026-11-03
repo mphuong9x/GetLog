@@ -15,10 +15,13 @@ dotnet publish (Join-Path $root 'LogEOT.UI\LogEOT.UI.csproj') `
     --self-contained true `
     -p:PublishSingleFile=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `
+    -p:IncludeAllContentForSelfExtract=true `
     -p:EnableCompressionInSingleFile=true `
+    -p:PublishTrimmed=false `
     -p:DebugType=none `
+    -p:DebugSymbols=false `
     -o (Join-Path $root 'publish')
 
-if ($LASTEXITCODE -ne 0) { throw "publish failed ($LASTEXITCODE) — close LogEOT.UI.exe if it is running" }
+if ($LASTEXITCODE -ne 0) { throw "publish failed ($LASTEXITCODE) - close LogEOT.UI.exe if it is running" }
 
 Get-ChildItem (Join-Path $root 'publish')
