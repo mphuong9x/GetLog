@@ -14,6 +14,12 @@ public class LogParser
     private static readonly Regex TwoSidedLimitRegex = new(@"\(\s*(-?[\d.]+)\s*(?:<=\s*x\s*<=|~)\s*(-?[\d.]+)\s*\)", RegexOptions.Compiled);
     // One-sided limits: "(10 <= x)" or "(x <= 30)".
     private static readonly Regex OneSidedLimitRegex = new(@"\(\s*(?:(-?[\d.]+)\s*<=\s*x|x\s*<=\s*(-?[\d.]+))\s*\)", RegexOptions.Compiled);
+    private const string LimitNumberPattern = @"[+-]?(?:\d+(?:\.\d+)?|\.\d+)";
+    // Limits without an x: "(>= -75, <= -65)", "(> 40)", or "(<= 30)".
+    private static readonly Regex PrefixedLimitRegex = new(
+        @"\(\s*(?<firstOperator>[<>]=?)\s*(?<firstValue>" + LimitNumberPattern
+        + @")\s*(?:,\s*(?<secondOperator>[<>]=?)\s*(?<secondValue>" + LimitNumberPattern
+        + @")\s*)?\)", RegexOptions.Compiled);
 
     public LogResult Parse(string filePath, List<(string Key, string AltKey, string ColumnName)> keys)
     {
@@ -171,6 +177,25 @@ public class LogParser
     private static (string? Lower, string? Upper) ExtractLimits(string text)
     {
         var twoSided = TwoSidedLimitRegex.Match(text);
+        var oneSided = OneSidedLimitRegex.Match(text);
+        var prefixed = PrefixedLimitRegex.Match(text);
+        // A later measurement on this line may use a legacy limit format. Do not
+        // let that format take precedence over this measurement's new-style limit.
+        // Without a preceding new-style limit, the legacy rules stay unchanged.
+        if (prefixed.Success && (!twoSided.Success || prefixed.Index < twoSided.Index)
+            && (!oneSided.Success || prefixed.Index < oneSided.Index))
+        {
+            string first = prefixed.Groups["firstValue"].Value;
+            bool firstIsLower = prefixed.Groups["firstOperator"].Value.StartsWith('>');
+            if (!prefixed.Groups["secondValue"].Success)
+                return firstIsLower ? (first, null) : (null, first);
+
+            string second = prefixed.Groups["secondValue"].Value;
+            bool secondIsLower = prefixed.Groups["secondOperator"].Value.StartsWith('>');
+            if (firstIsLower == secondIsLower) return (null, null);
+            return firstIsLower ? (first, second) : (second, first);
+        }
+
         if (twoSided.Success)
         {
             string first = twoSided.Groups[1].Value, second = twoSided.Groups[2].Value;
@@ -181,7 +206,6 @@ public class LogParser
                 return a <= b ? (first, second) : (second, first);
         }
 
-        var oneSided = OneSidedLimitRegex.Match(text);
         if (oneSided.Success)
         {
             return oneSided.Groups[1].Success
