@@ -9,7 +9,7 @@ namespace LogEOT.UI.Views;
 public partial class RemoveDuplicateView : System.Windows.Controls.UserControl
 {
     // Passing log: PASS_<12-char MAC>_<model>_<station>_<pc>_<yyyyMMddHHmmss>_<sn>.log
-    private static readonly Regex MacRegex = new(@"^PASS_([0-9A-Fa-f]{12})", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex MacRegex = new(@"^FAIL_([0-9A-Fa-f]{12})", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex StampRegex = new(@"_(\d{14})(?=[_.]|$)", RegexOptions.Compiled);
 
     private const string DuplicateFolderName = "_Duplicates";

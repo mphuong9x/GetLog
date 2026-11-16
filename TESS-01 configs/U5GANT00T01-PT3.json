@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "name": "U5GANT00T01-PT3",
+  "keys": [
+    {
+      "key": "[PASS] Tx_Power_FDD_B3, value =",
+      "altKey": "",
+      "columnName": "Tx_Power_FDD_B3"
+    },
+    {
+      "key": "[PASS] Tx_Power_FDD_B3_NE6000, value =",
+      "altKey": "",
+      "columnName": "Tx_Power_FDD_B3_NE6000"
+    },
+    {
+      "key": "[PASS] PCC_Rx0_RSRP_FDD_B3, value =",
+      "altKey": "",
+      "columnName": "PCC_Rx0_RSRP_FDD_B3"
+    },
+    {
+      "key": "[PASS] PCC_Rx1_RSRP_FDD_B3, value =",
+      "altKey": "",
+      "columnName": "PCC_Rx1_RSRP_FDD_B3"
+    },
+    {
+      "key": "[PASS] Tx_Power_FDD_B5, value =",
+      "altKey": "",
+      "columnName": "Tx_Power_FDD_B5"
+    },
+    {
+      "key": "[PASS] Tx_Power_FDD_B5_NE6000, value =",
+      "altKey": "",
+      "columnName": "Tx_Power_FDD_B5_NE6000"
+    },
+    {
+      "key": "[PASS] PCC_Rx0_RSRP_FDD_B5, value =",
+      "altKey": "",
+      "columnName": "PCC_Rx0_RSRP_FDD_B5"
+    },
+    {
+      "key": "[PASS] PCC_Rx1_RSRP_FDD_B5, value =",
+      "altKey": "",
+      "columnName": "PCC_Rx1_RSRP_FDD_B5"
+    },
+    {
+      "key": "[PASS] Tx_Power_TDD_B42, value =",
+      "altKey": "",
+      "columnName": "Tx_Power_TDD_B42"
+    },
+    {
+      "key": "[PASS] Tx_Power_TDD_B42_NE6000, value =",
+      "altKey": "",
+      "columnName": "Tx_Power_TDD_B42_NE6000"
+    },
+    {
+      "key": "[PASS] PCC_Rx0_RSRP_TDD_B42, value =",
+      "altKey": "",
+      "columnName": "PCC_Rx0_RSRP_TDD_B42"
+    },
+    {
+      "key": "[PASS] PCC_Rx1_RSRP_TDD_B42, value =",
+      "altKey": "",
+      "columnName": "PCC_Rx1_RSRP_TDD_B42"
+    }
+  ]
+}

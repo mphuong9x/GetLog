@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "name": "UTPG3xxxxxx-FT3",
+  "keys": [
+    {
+      "key": "[pass] Rx mean RSSI =",
+      "altKey": "",
+      "columnName": "BT RSSI"
+    },
+    {
+      "key": "[pass] avg Tx is",
+      "altKey": "",
+      "columnName": "nRF5340 Tx"
+    },
+    {
+      "key": "[pass] avg Rx is",
+      "altKey": "",
+      "columnName": "nRF5340 Rx"
+    },
+    {
+      "key": "[PASS] got rssi value, value =",
+      "altKey": "",
+      "columnName": "Wifi 2G"
+    },
+    {
+      "key": "[PASS] got rssi value, value =",
+      "altKey": "",
+      "columnName": "Wifi 5G"
+    }
+  ]
+}

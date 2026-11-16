@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "name": "UCCP0000T01-FT2-WiFi",
+  "keys": [
+    {
+      "key": "WiFi 2G tx (sender) Speed =",
+      "altKey": "",
+      "columnName": "WiFi 2G TX Speed"
+    },
+    {
+      "key": "WiFi 2G RSSI tx signal level average value 1 =",
+      "altKey": "",
+      "columnName": "WiFi 2G TX RSSI 1"
+    },
+    {
+      "key": "signal level average value 2 =",
+      "altKey": "",
+      "columnName": "WiFi 2G TX RSSI 2"
+    },
+    {
+      "key": "WiFi 2G rx (receiver) Speed =",
+      "altKey": "",
+      "columnName": "WiFi 2G RX Speed"
+    },
+    {
+      "key": "WiFi 2G RSSI rx signal level average value 1 =",
+      "altKey": "",
+      "columnName": "WiFi 2G RX RSSI 1"
+    },
+    {
+      "key": "signal level average value 2 =",
+      "altKey": "",
+      "columnName": "WiFi 2G RX RSSI 2"
+    },
+    {
+      "key": "WiFi 5G tx (sender) Speed =",
+      "altKey": "",
+      "columnName": "WiFi 5G TX Speed"
+    },
+    {
+      "key": "WiFi 5G RSSI tx signal level average value 1 =",
+      "altKey": "",
+      "columnName": "WiFi 5G TX RSSI 1"
+    },
+    {
+      "key": "signal level average value 2 =",
+      "altKey": "",
+      "columnName": "WiFi 5G TX RSSI 2"
+    },
+    {
+      "key": "WiFi 5G rx (receiver) Speed =",
+      "altKey": "",
+      "columnName": "WiFi 5G RX Speed"
+    },
+    {
+      "key": "WiFi 5G RSSI rx signal level average value 1 =",
+      "altKey": "",
+      "columnName": "WiFi 5G RX RSSI 1"
+    },
+    {
+      "key": "signal level average value 2 =",
+      "altKey": "",
+      "columnName": "WiFi 5G RX RSSI 2"
+    }
+  ]
+}
